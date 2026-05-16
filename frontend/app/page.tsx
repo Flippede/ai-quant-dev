@@ -2,22 +2,34 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CurrentUser, MarketOverview, WatchlistGroup, getCurrentUser, getMarketOverview, getWatchlistGroups, logout } from "@/lib/api/client";
+import {
+  CurrentUser,
+  MarketOverview,
+  StrategySummary,
+  WatchlistGroup,
+  getCurrentUser,
+  getMarketOverview,
+  getStrategySummary,
+  getWatchlistGroups,
+  logout,
+} from "@/lib/api/client";
 
 export default function DashboardPage() {
   const router = useRouter();
   const [user, setUser] = useState<CurrentUser | null>(null);
   const [overview, setOverview] = useState<MarketOverview | null>(null);
   const [groups, setGroups] = useState<WatchlistGroup[]>([]);
+  const [strategySummary, setStrategySummary] = useState<StrategySummary | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     getCurrentUser()
       .then(async (currentUser) => {
         setUser(currentUser);
-        const [overviewData, groupData] = await Promise.all([getMarketOverview(), getWatchlistGroups()]);
+        const [overviewData, groupData, strategyData] = await Promise.all([getMarketOverview(), getWatchlistGroups(), getStrategySummary()]);
         setOverview(overviewData);
         setGroups(groupData);
+        setStrategySummary(strategyData);
       })
       .catch(() => router.replace("/login"))
       .finally(() => setLoading(false));
@@ -50,6 +62,12 @@ export default function DashboardPage() {
             </p>
           </div>
           <div className="flex items-center gap-3">
+            <button
+              className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium"
+              onClick={() => router.push("/strategies")}
+            >
+              策略中心
+            </button>
             <button
               className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium"
               onClick={() => router.push("/watchlist")}
@@ -128,6 +146,37 @@ export default function DashboardPage() {
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+        </section>
+
+        <section className="rounded-lg border border-slate-200 bg-panel p-5">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <h2 className="text-lg font-semibold">我的策略摘要</h2>
+              <p className="mt-1 text-sm text-slate-600">
+                已创建 {strategySummary?.total_count ?? 0} 个策略，已启用 {strategySummary?.enabled_count ?? 0} 个。
+              </p>
+            </div>
+            <button className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-white" onClick={() => router.push("/strategies")}>
+              管理策略
+            </button>
+          </div>
+          {strategySummary && strategySummary.recent_configs.length > 0 ? (
+            <div className="mt-5 divide-y divide-slate-100 rounded-md border border-slate-200">
+              {strategySummary.recent_configs.map((config) => (
+                <div className="grid gap-2 p-3 text-sm md:grid-cols-[1fr_auto_auto]" key={config.id}>
+                  <span className="font-medium">{config.name}</span>
+                  <span className="text-slate-500">{new Date(config.updated_at).toLocaleString()}</span>
+                  <span className={config.is_enabled ? "font-medium text-emerald-700" : "font-medium text-slate-500"}>
+                    {config.is_enabled ? "已启用" : "已停用"}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="mt-5 rounded-md border border-dashed border-slate-300 p-5 text-sm text-slate-600">
+              还没有策略配置。进入策略中心从内置模板创建个人策略。
             </div>
           )}
         </section>

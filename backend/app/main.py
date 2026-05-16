@@ -5,6 +5,7 @@ from app.api.admin import router as admin_router
 from app.api.auth import router as auth_router
 from app.api.health import router as health_router
 from app.api.market import router as market_router
+from app.api.strategies import router as strategies_router
 from app.api.watchlist import router as watchlist_router
 from app.core.config import settings
 
@@ -27,6 +28,7 @@ def create_app() -> FastAPI:
     app.include_router(auth_router)
     app.include_router(admin_router)
     app.include_router(market_router)
+    app.include_router(strategies_router)
     app.include_router(watchlist_router)
     app.include_router(health_router, tags=["health"])
 

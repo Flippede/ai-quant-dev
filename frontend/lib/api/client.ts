@@ -59,6 +59,77 @@ export type WatchlistGroup = {
   items: WatchlistItem[];
 };
 
+export type StrategyTemplate = {
+  id: string;
+  key: string;
+  name: string;
+  version: string;
+  category: string;
+  description: string;
+  default_params_json: Record<string, unknown>;
+  schema_json: StrategyParamSchema;
+  is_builtin: boolean;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type StrategyParamProperty = {
+  type: "integer" | "number" | "boolean" | "string";
+  title?: string;
+  description?: string;
+  default?: unknown;
+  minimum?: number;
+  maximum?: number;
+  enum?: string[];
+};
+
+export type StrategyParamSchema = {
+  type: "object";
+  version?: number;
+  ui_order?: string[];
+  required?: string[];
+  properties: Record<string, StrategyParamProperty>;
+  supported_modes?: string[];
+};
+
+export type StrategyConfig = {
+  id: string;
+  user_id: string;
+  template_id: string;
+  template_key: string;
+  template_name: string;
+  template_category: string;
+  name: string;
+  params_json: Record<string, unknown>;
+  watch_scope_json: WatchScope;
+  is_enabled: boolean;
+  monitor_interval_sec: number;
+  risk_level: "low" | "medium" | "high" | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type WatchScopeInstrument = {
+  symbol: string;
+  market: string;
+  asset_type?: string | null;
+  name?: string | null;
+};
+
+export type WatchScope = {
+  type: "all_watchlists" | "watchlist_groups" | "instruments" | "etf_pool";
+  watchlist_group_ids?: string[];
+  instruments?: WatchScopeInstrument[];
+  etf_pool?: WatchScopeInstrument[];
+};
+
+export type StrategySummary = {
+  total_count: number;
+  enabled_count: number;
+  recent_configs: StrategyConfig[];
+};
+
 export async function apiRequest<T>(path: string, options: RequestInit = {}): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...options,
@@ -144,4 +215,60 @@ export function updateWatchlistItem(itemId: string, payload: { note?: string | n
 
 export function deleteWatchlistItem(itemId: string) {
   return apiRequest<{ status: string }>(`/api/watchlist/items/${itemId}`, { method: "DELETE" });
+}
+
+export function getStrategyTemplates() {
+  return apiRequest<StrategyTemplate[]>("/api/strategies/templates");
+}
+
+export function getStrategyTemplate(key: string) {
+  return apiRequest<StrategyTemplate>(`/api/strategies/templates/${encodeURIComponent(key)}`);
+}
+
+export function getStrategyConfigs() {
+  return apiRequest<StrategyConfig[]>("/api/strategies/configs");
+}
+
+export function getStrategySummary() {
+  return apiRequest<StrategySummary>("/api/strategies/summary");
+}
+
+export function createStrategyConfig(payload: {
+  template_key: string;
+  name?: string;
+  params_json?: Record<string, unknown>;
+  watch_scope_json?: WatchScope;
+  monitor_interval_sec?: number;
+  risk_level?: "low" | "medium" | "high";
+  is_enabled?: boolean;
+}) {
+  return apiRequest<StrategyConfig>("/api/strategies/configs", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function getStrategyConfig(configId: string) {
+  return apiRequest<StrategyConfig>(`/api/strategies/configs/${configId}`);
+}
+
+export function updateStrategyConfig(
+  configId: string,
+  payload: Partial<{
+    name: string;
+    params_json: Record<string, unknown>;
+    watch_scope_json: WatchScope;
+    monitor_interval_sec: number;
+    risk_level: "low" | "medium" | "high" | null;
+    is_enabled: boolean;
+  }>,
+) {
+  return apiRequest<StrategyConfig>(`/api/strategies/configs/${configId}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function deleteStrategyConfig(configId: string) {
+  return apiRequest<{ status: string }>(`/api/strategies/configs/${configId}`, { method: "DELETE" });
 }
