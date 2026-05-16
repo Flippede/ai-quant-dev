@@ -4,6 +4,7 @@ from uuid import uuid4
 
 from sqlalchemy import (
     Boolean,
+    CheckConstraint,
     Date,
     DateTime,
     ForeignKey,
@@ -43,8 +44,10 @@ class User(Base, TimestampMixin):
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     __table_args__ = (
+        CheckConstraint("role in ('admin', 'user')", name="ck_users_role"),
         UniqueConstraint("username", name="uq_users_username"),
         Index("ix_users_role", "role"),
+        Index("ix_users_is_active", "is_active"),
     )
 
 
@@ -395,4 +398,3 @@ class UserPreference(Base):
         UniqueConstraint("user_id", "key", name="uq_user_preferences_user_key"),
         Index("ix_user_preferences_user_id", "user_id"),
     )
-

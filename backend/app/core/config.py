@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     backend_cors_origins: str = "http://localhost:3000"
     session_cookie_name: str = "ai_quant_session"
     session_cookie_secure: bool = False
+    session_expire_hours: int = 168
     market_timezone: str = Field(default="Asia/Shanghai")
 
     @cached_property
@@ -22,4 +23,3 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
-

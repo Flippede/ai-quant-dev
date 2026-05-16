@@ -1,53 +1,75 @@
-const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
+"use client";
 
-const phaseItems = [
-  "Docker Compose: frontend / backend / postgres / redis",
-  "FastAPI health check",
-  "SQLAlchemy 2.x + Alembic baseline",
-  "MockProvider-only market data boundary",
-  "Asia/Shanghai market-time constraint",
-];
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { CurrentUser, getCurrentUser, logout } from "@/lib/api/client";
 
-export default function HomePage() {
+export default function DashboardPage() {
+  const router = useRouter();
+  const [user, setUser] = useState<CurrentUser | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    getCurrentUser()
+      .then(setUser)
+      .catch(() => router.replace("/login"))
+      .finally(() => setLoading(false));
+  }, [router]);
+
+  async function handleLogout() {
+    await logout();
+    router.replace("/login");
+  }
+
+  if (loading) {
+    return <main className="flex min-h-screen items-center justify-center text-sm text-slate-600">Loading...</main>;
+  }
+
+  if (!user) {
+    return null;
+  }
+
   return (
     <main className="min-h-screen px-4 py-6 sm:px-8">
       <section className="mx-auto flex max-w-5xl flex-col gap-6">
-        <header className="border-b border-slate-200 pb-5">
-          <p className="text-sm font-medium text-accent">Phase 1</p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-normal text-foreground sm:text-4xl">
-            AI 量化盯盘平台
-          </h1>
-          <p className="mt-3 max-w-2xl text-base leading-7 text-slate-600">
-            当前是项目基础骨架：服务、配置、数据库迁移框架和最小可运行页面已就位。
-          </p>
+        <header className="flex flex-col gap-4 border-b border-slate-200 pb-5 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-sm font-medium text-accent">Dashboard</p>
+            <h1 className="mt-2 text-3xl font-semibold tracking-normal text-foreground sm:text-4xl">
+              AI 量化盯盘平台
+            </h1>
+            <p className="mt-3 max-w-2xl text-base leading-7 text-slate-600">
+              当前已进入受保护后台。Phase 2 只提供认证与用户管理底座。
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            {user.role === "admin" ? (
+              <button
+                className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium"
+                onClick={() => router.push("/admin/users")}
+              >
+                用户管理
+              </button>
+            ) : null}
+            <button className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white" onClick={handleLogout}>
+              退出
+            </button>
+          </div>
         </header>
 
-        <div className="grid gap-4 md:grid-cols-[1.2fr_0.8fr]">
-          <section className="rounded-lg border border-slate-200 bg-panel p-5">
-            <h2 className="text-lg font-semibold">已纳入的基础约束</h2>
-            <ul className="mt-4 space-y-3 text-sm text-slate-700">
-              {phaseItems.map((item) => (
-                <li key={item} className="flex gap-3">
-                  <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-accent" />
-                  <span>{item}</span>
-                </li>
-              ))}
-            </ul>
-          </section>
-
-          <section className="rounded-lg border border-slate-200 bg-panel p-5">
-            <h2 className="text-lg font-semibold">后端检查</h2>
-            <p className="mt-3 text-sm leading-6 text-slate-600">
-              启动后访问 FastAPI health 接口确认 API 服务与市场时区配置。
-            </p>
-            <a
-              className="mt-4 inline-flex rounded-md bg-accent px-4 py-2 text-sm font-medium text-white"
-              href={`${apiBaseUrl}/health`}
-            >
-              打开 /health
-            </a>
-          </section>
-        </div>
+        <section className="rounded-lg border border-slate-200 bg-panel p-5">
+          <h2 className="text-lg font-semibold">当前用户</h2>
+          <dl className="mt-4 grid gap-3 text-sm text-slate-700 sm:grid-cols-2">
+            <div>
+              <dt className="text-slate-500">Username</dt>
+              <dd className="mt-1 font-medium text-foreground">{user.username}</dd>
+            </div>
+            <div>
+              <dt className="text-slate-500">Role</dt>
+              <dd className="mt-1 font-medium text-foreground">{user.role}</dd>
+            </div>
+          </dl>
+        </section>
       </section>
     </main>
   );

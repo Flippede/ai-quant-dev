@@ -32,6 +32,32 @@
 
 Phase 1 不包含登录系统、用户管理接口、策略 CRUD、回测执行、实时盯盘任务。
 
+## Authentication Bootstrap
+
+Phase 2 uses PostgreSQL-backed server sessions and an HttpOnly cookie. Passwords are hashed with Argon2id via `argon2-cffi`.
+
+Create the first administrator after running migrations:
+
+```bash
+docker compose exec backend python -m app.scripts.create_admin --username admin
+```
+
+The command prompts for the password. For non-interactive environments:
+
+```bash
+docker compose exec backend python -m app.scripts.create_admin --username admin --password '<strong-password>'
+```
+
+The script refuses to overwrite an existing user and refuses to create another first admin if an admin already exists. Additional users should be created from `/admin/users` or the admin API.
+
+Session behavior:
+
+- Login creates an `auth_sessions` row and sets an HttpOnly cookie.
+- Logout revokes the current session and clears the cookie.
+- Disabling a user revokes all existing sessions for that user.
+- Resetting a user password revokes all existing sessions for that user.
+- Changing your own password keeps the current session active.
+
 ## Environment
 
 Prerequisites:
@@ -55,6 +81,12 @@ Important defaults:
 - Market timezone: `Asia/Shanghai`
 
 If those host ports are already occupied, override `FRONTEND_HOST_PORT`, `BACKEND_HOST_PORT`, `POSTGRES_HOST_PORT`, or `REDIS_HOST_PORT` in `.env`.
+
+When changing frontend/backend host ports, also update:
+
+- `NEXT_PUBLIC_API_BASE_URL`
+- `NEXT_PUBLIC_WS_BASE_URL`
+- `BACKEND_CORS_ORIGINS`
 
 ## Start With Docker Compose
 
