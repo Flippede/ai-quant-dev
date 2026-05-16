@@ -58,6 +58,14 @@ Session behavior:
 - Resetting a user password revokes all existing sessions for that user.
 - Changing your own password keeps the current session active.
 
+## Phase 3 Market And Watchlist Notes
+
+- Market data still uses `MockMarketDataProvider`; real Tushare/AkShare providers remain future adapters.
+- `market_snapshots` is a latest-snapshot table keyed by `(symbol, market)`. Quote refreshes upsert the same row instead of appending unbounded tick data.
+- Mock seed instruments are inserted by migration and include major indices, ETFs, and sample A-share stocks.
+- Watchlist groups and items are private user data. All API queries derive ownership from the authenticated session, never from frontend-provided `user_id`.
+- Deleting a watchlist group cascades deletion of items in that group. This keeps the small private watchlist workflow simple and avoids orphaned rows.
+
 ## Environment
 
 Prerequisites:

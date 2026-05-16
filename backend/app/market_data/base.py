@@ -8,11 +8,24 @@ from decimal import Decimal
 class Quote:
     symbol: str
     market: str
+    name: str
+    asset_type: str
     ts: datetime
     last_price: Decimal
     pct_change: Decimal
     volume: Decimal
     amount: Decimal
+
+
+@dataclass(frozen=True)
+class InstrumentInfo:
+    symbol: str
+    market: str
+    name: str
+    asset_type: str
+    exchange: str | None
+    is_active: bool = True
+    metadata: dict | None = None
 
 
 @dataclass(frozen=True)
@@ -46,6 +59,13 @@ class MarketDataProvider(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def get_market_calendar(self, start: date, end: date) -> list[date]:
+    def search_instruments(self, keyword: str) -> list[InstrumentInfo]:
         raise NotImplementedError
 
+    @abstractmethod
+    def get_instrument_detail(self, symbol: str, market: str) -> InstrumentInfo | None:
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_market_calendar(self, start: date, end: date) -> list[date]:
+        raise NotImplementedError

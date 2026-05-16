@@ -84,6 +84,7 @@ class Instrument(Base):
     metadata_json: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
 
     __table_args__ = (
+        CheckConstraint("asset_type in ('stock', 'etf', 'index')", name="ck_instruments_asset_type"),
         UniqueConstraint("symbol", "market", name="uq_instruments_symbol_market"),
         Index("ix_instruments_symbol", "symbol"),
         Index("ix_instruments_asset_type", "asset_type"),
@@ -167,6 +168,7 @@ class WatchlistGroup(Base, TimestampMixin):
     __table_args__ = (
         UniqueConstraint("user_id", "name", name="uq_watchlist_groups_user_name"),
         Index("ix_watchlist_groups_user_id", "user_id"),
+        Index("ix_watchlist_groups_user_sort", "user_id", "sort_order"),
     )
 
 
@@ -186,6 +188,7 @@ class WatchlistItem(Base, TimestampMixin):
     __table_args__ = (
         UniqueConstraint("user_id", "group_id", "symbol", "market", name="uq_watchlist_items_user_group_symbol_market"),
         Index("ix_watchlist_items_user_id", "user_id"),
+        Index("ix_watchlist_items_user_group", "user_id", "group_id"),
         Index("ix_watchlist_items_symbol", "symbol"),
     )
 
