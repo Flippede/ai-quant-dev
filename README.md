@@ -54,11 +54,15 @@ Important defaults:
 - Redis: `localhost:6379`
 - Market timezone: `Asia/Shanghai`
 
+If those host ports are already occupied, override `FRONTEND_HOST_PORT`, `BACKEND_HOST_PORT`, `POSTGRES_HOST_PORT`, or `REDIS_HOST_PORT` in `.env`.
+
 ## Start With Docker Compose
 
 ```bash
 docker compose up --build
 ```
+
+If your user is not in the Docker group yet, run the Docker commands with `sudo`.
 
 Open:
 
