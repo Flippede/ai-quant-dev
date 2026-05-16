@@ -4,10 +4,12 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   CurrentUser,
+  BacktestSummary,
   MarketOverview,
   StrategySummary,
   WatchlistGroup,
   getCurrentUser,
+  getBacktestSummary,
   getMarketOverview,
   getStrategySummary,
   getWatchlistGroups,
@@ -20,16 +22,23 @@ export default function DashboardPage() {
   const [overview, setOverview] = useState<MarketOverview | null>(null);
   const [groups, setGroups] = useState<WatchlistGroup[]>([]);
   const [strategySummary, setStrategySummary] = useState<StrategySummary | null>(null);
+  const [backtestSummary, setBacktestSummary] = useState<BacktestSummary | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     getCurrentUser()
       .then(async (currentUser) => {
         setUser(currentUser);
-        const [overviewData, groupData, strategyData] = await Promise.all([getMarketOverview(), getWatchlistGroups(), getStrategySummary()]);
+        const [overviewData, groupData, strategyData, backtestData] = await Promise.all([
+          getMarketOverview(),
+          getWatchlistGroups(),
+          getStrategySummary(),
+          getBacktestSummary(),
+        ]);
         setOverview(overviewData);
         setGroups(groupData);
         setStrategySummary(strategyData);
+        setBacktestSummary(backtestData);
       })
       .catch(() => router.replace("/login"))
       .finally(() => setLoading(false));
@@ -62,6 +71,12 @@ export default function DashboardPage() {
             </p>
           </div>
           <div className="flex items-center gap-3">
+            <button
+              className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium"
+              onClick={() => router.push("/backtests")}
+            >
+              回测中心
+            </button>
             <button
               className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium"
               onClick={() => router.push("/strategies")}
@@ -180,7 +195,39 @@ export default function DashboardPage() {
             </div>
           )}
         </section>
+
+        <section className="rounded-lg border border-slate-200 bg-panel p-5">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <h2 className="text-lg font-semibold">最近回测</h2>
+              <p className="mt-1 text-sm text-slate-600">共 {backtestSummary?.total_count ?? 0} 条回测记录。</p>
+            </div>
+            <button className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-white" onClick={() => router.push("/backtests")}>
+              查看回测
+            </button>
+          </div>
+          {backtestSummary && backtestSummary.recent_runs.length > 0 ? (
+            <div className="mt-5 divide-y divide-slate-100 rounded-md border border-slate-200">
+              {backtestSummary.recent_runs.map((run) => (
+                <button className="grid w-full gap-2 p-3 text-left text-sm md:grid-cols-[1fr_auto_auto_auto]" key={run.id} onClick={() => router.push(`/backtests/${run.id}`)}>
+                  <span className="font-medium">{run.strategy_config_name ?? run.strategy_template_name ?? run.id}</span>
+                  <span>{formatPct(run.metrics_json.total_return_pct)}</span>
+                  <span>{formatPct(run.metrics_json.max_drawdown_pct)}</span>
+                  <span className="text-slate-500">{new Date(run.created_at).toLocaleString()}</span>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="mt-5 rounded-md border border-dashed border-slate-300 p-5 text-sm text-slate-600">
+              还没有回测记录。进入回测中心选择 ETF 动量轮动策略发起回测。
+            </div>
+          )}
+        </section>
       </section>
     </main>
   );
+}
+
+function formatPct(value: unknown) {
+  return typeof value === "number" ? `${value.toFixed(2)}%` : "-";
 }

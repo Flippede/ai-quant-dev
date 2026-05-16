@@ -130,6 +130,50 @@ export type StrategySummary = {
   recent_configs: StrategyConfig[];
 };
 
+export type BacktestTrade = {
+  id: string;
+  backtest_run_id: string;
+  symbol: string;
+  side: "buy" | "sell";
+  trade_date: string;
+  price: number;
+  quantity: number;
+  amount: number;
+  fee: number;
+  pnl: number | null;
+  reason: string | null;
+  created_at: string;
+};
+
+export type BacktestRun = {
+  id: string;
+  user_id: string;
+  strategy_config_id: string | null;
+  strategy_template_id: string;
+  strategy_config_name: string | null;
+  strategy_template_key: string | null;
+  strategy_template_name: string | null;
+  status: "pending" | "running" | "succeeded" | "failed";
+  symbols_json: string[];
+  start_date: string;
+  end_date: string;
+  params_snapshot_json: Record<string, unknown>;
+  assumptions_json: Record<string, unknown>;
+  metrics_json: Record<string, number | string | null>;
+  equity_curve_json: Array<{ date: string; equity: number; cash: number; positions: Record<string, number> }>;
+  error_message: string | null;
+  created_at: string;
+  updated_at: string;
+  started_at: string | null;
+  finished_at: string | null;
+  trades: BacktestTrade[];
+};
+
+export type BacktestSummary = {
+  total_count: number;
+  recent_runs: BacktestRun[];
+};
+
 export async function apiRequest<T>(path: string, options: RequestInit = {}): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...options,
@@ -271,4 +315,37 @@ export function updateStrategyConfig(
 
 export function deleteStrategyConfig(configId: string) {
   return apiRequest<{ status: string }>(`/api/strategies/configs/${configId}`, { method: "DELETE" });
+}
+
+export function getBacktests() {
+  return apiRequest<BacktestRun[]>("/api/backtests");
+}
+
+export function getBacktestSummary() {
+  return apiRequest<BacktestSummary>("/api/backtests/summary");
+}
+
+export function createBacktest(payload: {
+  strategy_config_id: string;
+  symbols?: string[];
+  start_date: string;
+  end_date: string;
+  initial_cash: number;
+  fee_rate: number;
+  slippage_rate: number;
+  execution_price_type?: "close";
+  adjustment_mode?: "none" | "qfq" | "hfq";
+}) {
+  return apiRequest<BacktestRun>("/api/backtests", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function getBacktest(runId: string) {
+  return apiRequest<BacktestRun>(`/api/backtests/${runId}`);
+}
+
+export function deleteBacktest(runId: string) {
+  return apiRequest<{ status: string }>(`/api/backtests/${runId}`, { method: "DELETE" });
 }

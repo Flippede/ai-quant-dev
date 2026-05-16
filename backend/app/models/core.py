@@ -254,6 +254,7 @@ class BacktestRun(Base, TimestampMixin):
 
     __table_args__ = (
         Index("ix_backtest_runs_user_id", "user_id"),
+        Index("ix_backtest_runs_strategy_config_id", "strategy_config_id"),
         Index("ix_backtest_runs_created_at", "created_at"),
     )
 
