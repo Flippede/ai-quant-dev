@@ -1,6 +1,7 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.core.database import get_db
 from app.core.deps import get_current_user, require_admin
 from app.market_data.provider import get_market_data_provider_name
@@ -25,11 +26,18 @@ def monitoring_status_api(_: User = Depends(get_current_user)) -> dict:
 
 @router.post("/monitoring/refresh-once")
 def refresh_once_api(_: User = Depends(require_admin), db: Session = Depends(get_db)) -> dict:
+    _ensure_monitoring_actions_enabled()
     count = refresh_market_quotes_once(db)
     return {"status": "ok", "refreshed_symbols": count}
 
 
 @router.post("/monitoring/scan-once")
 def scan_once_api(force: bool = False, _: User = Depends(require_admin), db: Session = Depends(get_db)) -> dict:
+    _ensure_monitoring_actions_enabled()
     count = scan_enabled_strategies_once(db, force=force)
     return {"status": "ok", "signals_written": count}
+
+
+def _ensure_monitoring_actions_enabled() -> None:
+    if not settings.enable_admin_monitoring_actions:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Monitoring actions are disabled")

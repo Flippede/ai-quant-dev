@@ -16,7 +16,7 @@ class BacktestInputError(ValueError):
 class BacktestEngine:
     def run(self, request: BacktestRequest) -> BacktestResult:
         if request.template_key != "etf_momentum_rotation":
-            raise BacktestUnsupportedStrategyError(f"Strategy {request.template_key} is not supported for Phase 5 backtesting")
+            raise BacktestUnsupportedStrategyError(f"Strategy {request.template_key} is not supported for historical backtesting")
         return self._run_etf_momentum_rotation(request)
 
     def _run_etf_momentum_rotation(self, request: BacktestRequest) -> BacktestResult:

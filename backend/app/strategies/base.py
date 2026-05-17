@@ -41,10 +41,10 @@ class StrategyPlugin(ABC):
         return self.definition.description
 
     def evaluate_for_backtest(self, *args: Any, **kwargs: Any) -> list[StrategySignal]:
-        raise NotImplementedError("Backtest evaluation is reserved for Phase 5")
+        raise NotImplementedError("Backtest evaluation is not implemented for this strategy plugin")
 
     def evaluate_for_monitor(self, *args: Any, **kwargs: Any) -> list[StrategySignal]:
-        raise NotImplementedError("Monitor evaluation is reserved for Phase 6")
+        raise NotImplementedError("Monitor evaluation is not implemented for this strategy plugin")
 
 
 class StrategyParamValidationError(ValueError):

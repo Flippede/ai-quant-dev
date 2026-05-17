@@ -35,6 +35,5 @@ V1 may use a simplified model, but the assumptions must be visible to users.
 
 ## Third-party Quant Libraries
 
-- QuantStats is not introduced in Phase 1 to Phase 4.
+- QuantStats is optional; keep the core backtest engine independent from report libraries.
 - Qlib, Hikyuu, QUANTAXIS, and vn.py are reference projects only at this stage.
-

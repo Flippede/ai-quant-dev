@@ -97,7 +97,7 @@ export default function DashboardPage() {
               市场概览、自选池和策略信号使用统一行情 Provider，最近成功快照会服务端持久化。
             </p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <button
               className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium"
               onClick={() => router.push("/ai/strategy-advisor")}

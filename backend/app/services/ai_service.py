@@ -1,6 +1,7 @@
 from typing import Any
 from uuid import UUID
 import json
+import logging
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -21,6 +22,8 @@ from app.models.core import (
     WatchlistItem,
 )
 from app.schemas.ai import AIConversationDetailPublic, AIConversationPublic, AIMessagePublic, AIResponsePublic
+
+logger = logging.getLogger(__name__)
 
 
 class AIServiceError(Exception):
@@ -119,6 +122,7 @@ def _run_ai(db: Session, user: User, context_type: str, context_id: str | None, 
     try:
         provider = get_ai_provider()
     except AIProviderError as exc:
+        logger.warning("AI provider init failed user_id=%s context_type=%s error=%s", user.id, context_type, str(exc))
         raise AIServiceError(str(exc)) from exc
     conversation = AiConversation(user_id=user.id, title=title[:200], provider=provider.provider_name, model=provider.model, context_type=context_type, context_id=context_id)
     db.add(conversation)
@@ -129,6 +133,7 @@ def _run_ai(db: Session, user: User, context_type: str, context_id: str | None, 
     try:
         ai_response = provider.generate(prompt_messages)
     except AIProviderError as exc:
+        logger.warning("AI provider request failed user_id=%s conversation_id=%s context_type=%s error=%s", user.id, conversation.id, context_type, str(exc))
         db.add(AiMessage(user_id=user.id, conversation_id=conversation.id, role="assistant", content=str(exc), metadata_json={"error": True}))
         db.commit()
         raise AIServiceError(str(exc)) from exc

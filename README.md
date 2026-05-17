@@ -1,94 +1,116 @@
 # AI Quant Watch
 
-私有部署的 AI 量化盯盘平台。当前仓库处于 Phase 1：项目骨架、基础服务、数据库迁移框架、最小前端页面和健康检查。
+私有部署的 AI 量化盯盘平台，面向多用户自选池、策略配置、历史回测、实时策略信号和 AI 辅助解释。
 
-## Current Structure
+## Features
+
+- 多用户登录、管理员用户管理、私有数据隔离
+- 自选池与真实行情展示
+- 策略中心：内置策略模板、用户策略配置、参数 schema
+- 回测中心：Mock 数据源与 AKShare 真实历史日线数据源
+- 实时盯盘：AKShare 行情 Provider、交易时段调度、策略扫描、信号落库
+- AI 能力：策略设计助手、策略配置解释、回测解读、实时信号解释、Dashboard 摘要
+- 运维基础：生产 compose、scheduler 单独服务、日志、备份脚本、生产检查清单
+
+## Repository
 
 ```text
-.
-├── backend/              # FastAPI, SQLAlchemy 2.x, Alembic
-├── frontend/             # Next.js App Router, TypeScript, Tailwind CSS
-├── docs/                 # Architecture notes and project constraints
-├── infra/                # Reserved for deployment and ops files
-├── docker-compose.yml
-├── docker-compose.prod.yml
-├── .env.example
-└── .gitignore
+backend/               FastAPI, SQLAlchemy 2.x, Alembic
+frontend/              Next.js App Router, TypeScript, Tailwind CSS
+docs/                  Architecture and operations docs
+scripts/               Operational scripts
+docker-compose.yml     Development compose
+docker-compose.prod.yml Production compose
+.env.example           Development env template
+.env.production.example Production env template
 ```
 
-## Phase 1 Scope
+## Development Startup
 
-已完成的基础边界：
+```bash
+cp .env.example .env
+docker compose up -d --build
+docker compose exec backend alembic upgrade head
+```
 
-- Docker Compose services: `frontend`, `backend`, `postgres`, `redis`
-- FastAPI app with `/health` and `/health/db`
-- SQLAlchemy 2.x database setup
-- Alembic migration structure
-- Initial model baseline with key unique constraints and indexes
-- Next.js minimal responsive shell page
-- Mock-only market data provider boundary
-- `Asia/Shanghai` market-time helper
-- Git ignore rules and repository initialization support
+Default development ports:
 
-Phase 1 不包含登录系统、用户管理接口、策略 CRUD、回测执行、实时盯盘任务。
+- Frontend: `http://localhost:3000`
+- Backend: `http://localhost:8000`
+- PostgreSQL: `localhost:5432`
+- Redis: `localhost:6379`
 
-## Authentication Bootstrap
+This server currently uses host ports `13000` and `18000` through local `.env` overrides.
 
-Phase 2 uses PostgreSQL-backed server sessions and an HttpOnly cookie. Passwords are hashed with Argon2id via `argon2-cffi`.
+## Production Startup
 
-Create the first administrator after running migrations:
+```bash
+cp .env.production.example .env.production
+# edit .env.production before launch
+docker compose -f docker-compose.prod.yml --env-file .env.production up -d --build
+docker compose -f docker-compose.prod.yml --env-file .env.production exec backend alembic upgrade head
+```
+
+Production design:
+
+- `backend` runs API only with `RUN_SCHEDULER_IN_API=false`.
+- `scheduler` is the single monitoring worker.
+- `frontend` builds and serves Next.js in production mode.
+- PostgreSQL and Redis use named volumes and are not published to the host.
+- Frontend and backend bind to `127.0.0.1` for Nginx reverse proxy.
+
+## Required Production Configuration
+
+At minimum, review and set:
+
+- `APP_ENV=production`
+- `PUBLIC_BASE_URL`
+- `BACKEND_CORS_ORIGINS`
+- `TRUSTED_HOSTS`
+- `SESSION_COOKIE_SECURE=true`
+- `POSTGRES_PASSWORD`
+- `DATABASE_URL`
+- `REDIS_URL`
+- `MARKET_DATA_PROVIDER=akshare`
+- `AI_PROVIDER=openai_compatible`
+- `AI_BASE_URL`
+- `AI_API_KEY`
+- `AI_MODEL`
+
+Never commit real passwords or API keys.
+
+## Database Migration
+
+```bash
+docker compose exec backend alembic upgrade head
+docker compose exec backend alembic current
+```
+
+Production:
+
+```bash
+docker compose -f docker-compose.prod.yml --env-file .env.production exec backend alembic upgrade head
+```
+
+## Administrator Bootstrap
+
+Create the first administrator after migrations:
 
 ```bash
 docker compose exec backend python -m app.scripts.create_admin --username admin
 ```
 
-The command prompts for the password. For non-interactive environments:
+Non-interactive:
 
 ```bash
 docker compose exec backend python -m app.scripts.create_admin --username admin --password '<strong-password>'
 ```
 
-The script refuses to overwrite an existing user and refuses to create another first admin if an admin already exists. Additional users should be created from `/admin/users` or the admin API.
+Change the bootstrap password before production exposure.
 
-Session behavior:
+## AI Provider
 
-- Login creates an `auth_sessions` row and sets an HttpOnly cookie.
-- Logout revokes the current session and clears the cookie.
-- Disabling a user revokes all existing sessions for that user.
-- Resetting a user password revokes all existing sessions for that user.
-- Changing your own password keeps the current session active.
-
-## Phase 3 Market And Watchlist Notes
-
-- Market data still uses `MockMarketDataProvider`; real Tushare/AkShare providers remain future adapters.
-- `market_snapshots` is a latest-snapshot table keyed by `(symbol, market)`. Quote refreshes upsert the same row instead of appending unbounded tick data.
-- Mock seed instruments are inserted by migration and include major indices, ETFs, and sample A-share stocks.
-- Watchlist groups and items are private user data. All API queries derive ownership from the authenticated session, never from frontend-provided `user_id`.
-- Deleting a watchlist group cascades deletion of items in that group. This keeps the small private watchlist workflow simple and avoids orphaned rows.
-
-## Environment
-
-Prerequisites:
-
-- Docker Compose for the recommended server/dev startup path
-- Node.js 22+ for local frontend development
-- Python 3.12 for local backend development
-
-Create local environment file:
-
-```bash
-cp .env.example .env
-```
-
-Important defaults:
-
-- Backend: `http://localhost:8000`
-- Frontend: `http://localhost:3000`
-- PostgreSQL: `localhost:5432`
-- Redis: `localhost:6379`
-- Market timezone: `Asia/Shanghai`
-
-AI assistant defaults to `MockAIProvider` so local and test environments work without an external model. To use an OpenAI-compatible chat completions endpoint, set:
+Default development uses `MockAIProvider`. Production can use an OpenAI-compatible chat completions endpoint:
 
 ```env
 AI_PROVIDER=openai_compatible
@@ -99,100 +121,60 @@ AI_TIMEOUT_SECONDS=30
 AI_MAX_OUTPUT_TOKENS=1200
 ```
 
-The application calls `POST {AI_BASE_URL}/chat/completions` and stores AI conversations per user in PostgreSQL. Do not commit real API keys.
+The app calls `POST {AI_BASE_URL}/chat/completions`. API keys are not logged.
 
-If those host ports are already occupied, override `FRONTEND_HOST_PORT`, `BACKEND_HOST_PORT`, `POSTGRES_HOST_PORT`, or `REDIS_HOST_PORT` in `.env`.
-
-When changing frontend/backend host ports, also update:
-
-- `NEXT_PUBLIC_API_BASE_URL`
-- `NEXT_PUBLIC_WS_BASE_URL`
-- `BACKEND_CORS_ORIGINS`
-
-## Start With Docker Compose
+## GitHub Pull Deployment
 
 ```bash
-docker compose up --build
+cd /www/wwwroot/ai-quant-dev
+git fetch origin
+git checkout main
+git pull --ff-only origin main
+docker compose -f docker-compose.prod.yml --env-file .env.production up -d --build
+docker compose -f docker-compose.prod.yml --env-file .env.production exec backend alembic upgrade head
 ```
 
-If your user is not in the Docker group yet, run the Docker commands with `sudo`.
-
-Open:
-
-- Frontend: `http://localhost:3000`
-- Backend health: `http://localhost:8000/health`
-- Backend DB health: `http://localhost:8000/health/db`
-
-Run Alembic migrations from the backend container:
+## Health Checks
 
 ```bash
-docker compose exec backend alembic upgrade head
+curl http://127.0.0.1:18000/health
+curl http://127.0.0.1:18000/health/db
 ```
 
-## Local Backend Development
+Through production HTTPS:
 
 ```bash
-cd backend
-python3.12 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-uvicorn app.main:app --reload
+curl https://quant.example.com/health
+curl https://quant.example.com/health/db
 ```
 
-Use a reachable PostgreSQL database and set `DATABASE_URL` in `.env`.
+## Common Operations
 
-## Local Frontend Development
+Logs:
 
 ```bash
-cd frontend
-npm install
-npm run dev
+docker compose logs --tail=200 backend
+docker compose logs --tail=200 scheduler
+docker compose logs -f backend
 ```
 
-## Phase 1 Verification
-
-1. Copy `.env.example` to `.env`.
-2. Run `docker compose up --build`.
-3. Visit `http://localhost:3000`.
-4. Visit `http://localhost:8000/health`.
-5. Run `docker compose exec backend alembic upgrade head`.
-6. Visit `http://localhost:8000/health/db`.
-
-Expected `/health` response includes:
-
-- `status: ok`
-- `market_timezone: Asia/Shanghai`
-- UTC and market-time timestamps
-
-## Git
-
-This project is initialized as a local Git repository in Phase 1.
-
-Suggested phase workflow:
+Backup:
 
 ```bash
-git status
-git add .
-git commit -m "Phase 1: initialize project skeleton"
+BACKUP_DIR=/www/backups/ai-quant ./scripts/backup_postgres.sh
 ```
 
-To bind a GitHub remote later:
+Build verification:
 
 ```bash
-git remote add origin git@github.com:<your-org-or-user>/<your-repo>.git
-git branch -M main
-git push -u origin main
+docker compose build
+docker compose up -d
+docker compose exec backend python -m compileall app
+cd frontend && npm run build
 ```
 
-Each phase should produce a focused commit, for example:
+See:
 
-```bash
-git commit -m "Phase 2: add session authentication"
-```
-
-## Notes
-
-- `market_snapshots` is designed as a latest-snapshot table, not an unlimited append-only tick store.
-- `intraday_bars` is for aggregated minute-level bars.
-- QuantStats is intentionally not introduced before Phase 5.
-- Real Tushare / AkShare providers are reserved for later phases; Phase 1 uses `MockMarketDataProvider` only.
+- [docs/operations.md](docs/operations.md)
+- [docs/production-checklist.md](docs/production-checklist.md)
+- [docs/architecture-constraints.md](docs/architecture-constraints.md)

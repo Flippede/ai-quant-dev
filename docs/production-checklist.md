@@ -1,0 +1,21 @@
+# Production Checklist
+
+- `.env.production` created from `.env.production.example` and reviewed.
+- `POSTGRES_PASSWORD`, admin password, and AI API key are strong and not committed.
+- `APP_ENV=production` and `SESSION_COOKIE_SECURE=true`.
+- `BACKEND_CORS_ORIGINS` and `TRUSTED_HOSTS` contain only the production domain and required local health hosts.
+- `MARKET_DATA_PROVIDER=akshare`.
+- `AI_PROVIDER=openai_compatible` configured, or explicitly accepted as `mock` before real launch.
+- Real AI smoke test completed for strategy advisor, backtest explanation, and signal explanation.
+- `docker compose -f docker-compose.prod.yml --env-file .env.production up -d --build` succeeds.
+- `alembic upgrade head` succeeds.
+- `GET /health` and `GET /health/db` succeed through HTTPS.
+- Nginx proxies `/`, `/api/`, and `/ws/` with `X-Forwarded-*` and WebSocket headers.
+- PostgreSQL and Redis are not exposed publicly.
+- Scheduler is running as one `scheduler` service; API service has `RUN_SCHEDULER_IN_API=false`.
+- `ENABLE_ADMIN_MONITORING_ACTIONS=false` unless running controlled admin smoke tests.
+- Admin password has been changed after bootstrap.
+- Backup script has produced and restored a test dump in staging.
+- Docker service is enabled on boot.
+- Logs are viewable with `docker compose logs`.
+- GitHub `origin/main` contains the deployed commit.

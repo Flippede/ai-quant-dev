@@ -2,6 +2,8 @@
 .env
 .env.*
 !.env.example
+!.env.production.example
+backups/
 
 __pycache__/
 *.py[cod]
@@ -26,4 +28,3 @@ coverage/
 
 postgres_data/
 redis_data/
-

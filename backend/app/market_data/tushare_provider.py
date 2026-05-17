@@ -7,7 +7,7 @@ class TushareProvider(MarketDataProvider):
     provider_name = "tushare"
 
     def _not_configured(self) -> None:
-        raise NotImplementedError("TushareProvider is reserved for a future phase; set MARKET_DATA_PROVIDER=akshare or mock")
+        raise NotImplementedError("TushareProvider is not configured yet; set MARKET_DATA_PROVIDER=akshare or mock")
 
     def get_realtime_quotes(self, instruments: list[str]) -> list[Quote]:
         self._not_configured()

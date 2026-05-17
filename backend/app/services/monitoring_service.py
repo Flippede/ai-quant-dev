@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from decimal import Decimal
+import logging
 from typing import Any
 
 from sqlalchemy import select
@@ -13,6 +14,8 @@ from app.market_data.provider import get_market_data_provider, get_market_data_p
 from app.models.core import StrategySignal as StrategySignalModel
 from app.models.core import StrategyTemplate, User, UserStrategyConfig, WatchlistItem
 from app.services.market_service import get_market_overview, get_quotes
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -30,8 +33,13 @@ def refresh_market_quotes_once(db: Session) -> int:
     users_with_items = list(db.scalars(select(WatchlistItem.symbol).distinct()))
     symbols = sorted(set(users_with_items) | {"000001", "000300", "399006"})
     if symbols:
-        get_quotes(db, symbols)
-        get_market_overview(db)
+        try:
+            get_quotes(db, symbols)
+            get_market_overview(db)
+        except Exception as exc:
+            monitoring_status.last_error = f"market refresh failed: {exc}"
+            logger.exception("Market quote refresh failed symbols=%s", ",".join(symbols[:20]))
+            raise
     monitoring_status.last_quote_refresh_at = utc_now()
     return len(symbols)
 
@@ -48,9 +56,17 @@ def scan_enabled_strategies_once(db: Session, force: bool = False) -> int:
         symbols = _resolve_symbols(db, user, config)
         if not symbols:
             continue
-        quotes = {quote.symbol: quote for quote in provider.get_realtime_quotes(symbols)}
+        try:
+            quotes = {quote.symbol: quote for quote in provider.get_realtime_quotes(symbols)}
+        except Exception:
+            logger.exception("Realtime quote fetch failed user_id=%s strategy_config_id=%s", user.id, config.id)
+            continue
         for symbol in symbols:
-            bars = provider.get_recent_daily_bars(symbol, "CN", 90, "qfq")
+            try:
+                bars = provider.get_recent_daily_bars(symbol, "CN", 90, "qfq")
+            except Exception:
+                logger.exception("Recent daily bars fetch failed user_id=%s strategy_config_id=%s symbol=%s", user.id, config.id, symbol)
+                continue
             signals = _evaluate(template.key, config.params_json, symbol, quotes.get(symbol), bars)
             for signal in signals:
                 if _write_signal(db, user, config, template, signal, force):

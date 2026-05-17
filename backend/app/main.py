@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from app.api.admin import router as admin_router
 from app.api.ai import router as ai_router
@@ -12,17 +13,23 @@ from app.api.signals import router as signals_router
 from app.api.system import router as system_router
 from app.api.watchlist import router as watchlist_router
 from app.core.config import settings
+from app.core.logging import configure_logging
+from app.core.middleware import RequestIDMiddleware
 from app.monitoring.scheduler import monitoring_loop
 import asyncio
 
 
 def create_app() -> FastAPI:
+    configure_logging()
     app = FastAPI(
         title=settings.app_name,
         version="0.1.0",
         description="Private AI quantitative watch platform API.",
     )
 
+    if settings.is_production and settings.allowed_hosts:
+        app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings.allowed_hosts)
+    app.add_middleware(RequestIDMiddleware)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,
@@ -44,7 +51,8 @@ def create_app() -> FastAPI:
 
     @app.on_event("startup")
     async def start_monitoring_scheduler() -> None:
-        asyncio.create_task(monitoring_loop())
+        if settings.run_scheduler_in_api:
+            asyncio.create_task(monitoring_loop())
 
     return app
 

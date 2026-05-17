@@ -1,11 +1,14 @@
 from datetime import date, datetime, timedelta
 from decimal import Decimal
+import logging
 from typing import Any
 from zoneinfo import ZoneInfo
 
 from app.core.config import settings
 from app.market_data.base import Bar, InstrumentInfo, MarketDataProvider, Quote
 from app.market_data.symbols import infer_exchange, normalize_symbol, provider_code
+
+logger = logging.getLogger(__name__)
 
 
 class AKShareProvider(MarketDataProvider):
@@ -27,6 +30,7 @@ class AKShareProvider(MarketDataProvider):
             try:
                 df = fetcher()
             except Exception:
+                logger.exception("AKShare realtime quote fetch failed asset_type=%s", asset_type)
                 continue
             rows.extend(self._spot_rows(df, symbols, asset_type))
         return rows
@@ -45,6 +49,7 @@ class AKShareProvider(MarketDataProvider):
             try:
                 df = self.ak.stock_zh_index_spot_sina()
             except Exception:
+                logger.exception("AKShare index quote fetch failed")
                 return []
         return self._spot_rows(df, wanted, "index")
 
@@ -55,6 +60,7 @@ class AKShareProvider(MarketDataProvider):
             try:
                 df = fetcher()
             except Exception:
+                logger.exception("AKShare instrument search fetch failed asset_type=%s", asset_type)
                 continue
             for row in df.to_dict("records")[:6000]:
                 symbol = normalize_symbol(str(row.get("代码", "")))
@@ -106,6 +112,7 @@ class AKShareProvider(MarketDataProvider):
             try:
                 df = fetcher()
             except Exception:
+                logger.exception("AKShare daily bars fetch failed symbol=%s", clean)
                 continue
             bars = self._daily_rows(clean, df)
             if bars:

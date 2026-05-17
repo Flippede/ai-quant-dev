@@ -1,4 +1,5 @@
 from datetime import date
+import logging
 from typing import Any
 from uuid import UUID
 
@@ -12,6 +13,8 @@ from app.research.contexts import BacktestAssumptions, BacktestRequest
 from app.research.data_sources import get_backtest_data_source
 from app.research.data_sources.base import BACKTEST_DATA_SOURCES
 from app.schemas.backtests import BacktestRunPublic, BacktestTradePublic
+
+logger = logging.getLogger(__name__)
 
 
 class BacktestServiceError(Exception):
@@ -39,7 +42,7 @@ def create_backtest(
     if template is None:
         raise BacktestServiceError("Strategy template not found")
     if template.key != "etf_momentum_rotation":
-        raise BacktestServiceError(f"Strategy {template.key} is not supported for Phase 7A backtesting")
+        raise BacktestServiceError(f"Strategy {template.key} is not supported for historical backtesting")
     if data_source not in BACKTEST_DATA_SOURCES:
         raise BacktestServiceError(f"Unsupported backtest data source: {data_source}")
 
@@ -48,6 +51,7 @@ def create_backtest(
     try:
         market_data = data_source_loader.load_daily_bars(resolved_symbols, start_date, end_date, adjustment_mode)
     except Exception as exc:
+        logger.exception("Backtest market data load failed user_id=%s strategy_config_id=%s data_source=%s", user.id, strategy_config_id, data_source)
         raise BacktestServiceError(f"Failed to load backtest market data: {exc}") from exc
     if not market_data.bars_by_symbol:
         raise BacktestServiceError("No historical daily bars available for selected symbols")
@@ -108,6 +112,7 @@ def create_backtest(
             )
         )
     except (BacktestInputError, BacktestUnsupportedStrategyError) as exc:
+        logger.warning("Backtest input failed user_id=%s run_id=%s error=%s", user.id, run.id, str(exc))
         run.status = "failed"
         run.error_message = str(exc)
         run.finished_at = utc_now()
@@ -115,6 +120,7 @@ def create_backtest(
         db.refresh(run)
         raise BacktestServiceError(str(exc)) from exc
     except Exception as exc:
+        logger.exception("Backtest execution failed user_id=%s run_id=%s", user.id, run.id)
         run.status = "failed"
         run.error_message = "Backtest execution failed"
         run.finished_at = utc_now()
