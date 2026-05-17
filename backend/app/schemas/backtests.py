@@ -4,6 +4,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
+BACKTEST_DATA_SOURCE_PATTERN = "^(mock_daily_bars|akshare_daily_bars)$"
+
 
 class CreateBacktestRequest(BaseModel):
     strategy_config_id: UUID
@@ -14,7 +16,8 @@ class CreateBacktestRequest(BaseModel):
     fee_rate: float = Field(default=0.0003, ge=0, le=0.1)
     slippage_rate: float = Field(default=0.0005, ge=0, le=0.1)
     execution_price_type: str = Field(default="close", pattern="^close$")
-    adjustment_mode: str = Field(default="none", pattern="^(none|qfq|hfq)$")
+    data_source: str = Field(default="mock_daily_bars", pattern=BACKTEST_DATA_SOURCE_PATTERN)
+    adjustment_mode: str = Field(default="qfq", pattern="^(none|qfq|hfq)$")
 
 
 class BacktestTradePublic(BaseModel):
@@ -43,6 +46,8 @@ class BacktestRunPublic(BaseModel):
     strategy_template_key: str | None = None
     strategy_template_name: str | None = None
     status: str
+    data_source: str
+    adjustment_mode: str
     symbols_json: list[str]
     start_date: date
     end_date: date

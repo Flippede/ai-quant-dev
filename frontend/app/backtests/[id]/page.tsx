@@ -34,6 +34,8 @@ export default function BacktestDetailPage() {
   if (!run) {
     return <main className="flex min-h-screen items-center justify-center text-sm text-slate-600">Loading...</main>;
   }
+  const dataQuality = (run.assumptions_json.data_quality ?? {}) as Record<string, unknown>;
+  const warnings = Array.isArray(run.assumptions_json.warnings) ? run.assumptions_json.warnings : [];
 
   return (
     <main className="min-h-screen px-4 py-6 sm:px-8">
@@ -44,6 +46,9 @@ export default function BacktestDetailPage() {
             <h1 className="mt-2 text-3xl font-semibold">{run.strategy_config_name ?? run.strategy_template_name}</h1>
             <p className="mt-2 text-sm text-slate-600">
               {run.start_date} 至 {run.end_date} / {run.symbols_json.join(", ")}
+            </p>
+            <p className={run.data_source === "akshare_daily_bars" ? "mt-3 text-sm font-medium text-blue-700" : "mt-3 text-sm font-medium text-slate-600"}>
+              {run.data_source === "akshare_daily_bars" ? "这是基于 AKShare 真实历史行情的回测" : "这是基于 Mock 测试数据的回测"}
             </p>
           </div>
           <div className="flex gap-2">
@@ -70,6 +75,27 @@ export default function BacktestDetailPage() {
         </section>
 
         <section className="rounded-lg border border-slate-200 bg-panel p-5">
+          <h2 className="font-semibold">数据源与质量</h2>
+          <div className="mt-4 grid gap-3 text-sm md:grid-cols-4">
+            <MetricCard label="数据源" value={run.data_source === "akshare_daily_bars" ? "AKShare真实历史" : "Mock"} />
+            <MetricCard label="Provider" value={String(run.assumptions_json.provider_name ?? "-")} />
+            <MetricCard label="复权模式" value={run.adjustment_mode} />
+            <MetricCard label="Bar 数量" value={String(dataQuality.bar_count ?? "-")} />
+            <MetricCard label="请求区间" value={`${run.assumptions_json.requested_start_date ?? run.start_date} / ${run.assumptions_json.requested_end_date ?? run.end_date}`} />
+            <MetricCard label="实际区间" value={`${run.assumptions_json.actual_start_date ?? "-"} / ${run.assumptions_json.actual_end_date ?? "-"}`} />
+            <MetricCard label="缺失标的" value={Array.isArray(dataQuality.missing_symbols) ? String(dataQuality.missing_symbols.length) : "-"} />
+            <MetricCard label="缺失策略" value={String(run.assumptions_json.missing_data_policy ?? "-")} />
+          </div>
+          {warnings.length > 0 ? (
+            <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm leading-6 text-amber-800">
+              {warnings.map((warning, index) => (
+                <p key={`${warning}-${index}`}>{String(warning)}</p>
+              ))}
+            </div>
+          ) : null}
+        </section>
+
+        <section className="rounded-lg border border-slate-200 bg-panel p-5">
           <h2 className="font-semibold">收益曲线</h2>
           <svg className="mt-4 h-72 w-full overflow-visible rounded-md border border-slate-200 bg-white" preserveAspectRatio="none" viewBox="0 0 800 260">
             <polyline fill="none" points={linePoints} stroke="#2563eb" strokeWidth="3" />
@@ -89,7 +115,7 @@ export default function BacktestDetailPage() {
               ))}
           </div>
           <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm leading-6 text-amber-800">
-            {Array.isArray(run.assumptions_json.warnings) ? run.assumptions_json.warnings.join(" ") : "Phase 5 使用 deterministic mock daily bars，尚未考虑停牌、涨跌停和复权处理。"}
+            {warnings.length > 0 ? warnings.join(" ") : "尚未考虑停牌、涨跌停和完整公司行为处理。"}
           </div>
         </section>
 

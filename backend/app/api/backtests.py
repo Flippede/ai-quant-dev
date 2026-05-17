@@ -38,6 +38,7 @@ def create_backtest_api(
             payload.slippage_rate,
             payload.execution_price_type,
             payload.adjustment_mode,
+            payload.data_source,
         )
     except BacktestServiceError as exc:
         detail = str(exc)

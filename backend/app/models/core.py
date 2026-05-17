@@ -249,6 +249,8 @@ class BacktestRun(Base, TimestampMixin):
     metrics_json: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
     equity_curve_json: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, nullable=False, default=list)
     error_message: Mapped[str | None] = mapped_column(Text)
+    data_source: Mapped[str] = mapped_column(String(64), nullable=False, default="mock_daily_bars")
+    adjustment_mode: Mapped[str] = mapped_column(String(16), nullable=False, default="none")
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 

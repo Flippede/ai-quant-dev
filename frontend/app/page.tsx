@@ -272,8 +272,11 @@ export default function DashboardPage() {
           {backtestSummary && backtestSummary.recent_runs.length > 0 ? (
             <div className="mt-5 divide-y divide-slate-100 rounded-md border border-slate-200">
               {backtestSummary.recent_runs.map((run) => (
-                <button className="grid w-full gap-2 p-3 text-left text-sm md:grid-cols-[1fr_auto_auto_auto]" key={run.id} onClick={() => router.push(`/backtests/${run.id}`)}>
+                <button className="grid w-full gap-2 p-3 text-left text-sm md:grid-cols-[1fr_auto_auto_auto_auto]" key={run.id} onClick={() => router.push(`/backtests/${run.id}`)}>
                   <span className="font-medium">{run.strategy_config_name ?? run.strategy_template_name ?? run.id}</span>
+                  <span className={run.data_source === "akshare_daily_bars" ? "text-blue-700" : "text-slate-500"}>
+                    {run.data_source === "akshare_daily_bars" ? "AKShare真实历史" : "Mock"}
+                  </span>
                   <span>{formatPct(run.metrics_json.total_return_pct)}</span>
                   <span>{formatPct(run.metrics_json.max_drawdown_pct)}</span>
                   <span className="text-slate-500">{new Date(run.created_at).toLocaleString()}</span>

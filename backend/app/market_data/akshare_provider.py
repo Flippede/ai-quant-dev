@@ -86,11 +86,12 @@ class AKShareProvider(MarketDataProvider):
         clean = normalize_symbol(symbol)
         start_s = start.strftime("%Y%m%d")
         end_s = end.strftime("%Y%m%d")
+        provider_adjust = "" if adjust_mode == "none" else adjust_mode
         fetchers = []
         if clean.startswith(("5", "1")):
-            fetchers.append(lambda: self.ak.fund_etf_hist_em(symbol=clean, period="daily", start_date=start_s, end_date=end_s, adjust=adjust_mode))
+            fetchers.append(lambda: self.ak.fund_etf_hist_em(symbol=clean, period="daily", start_date=start_s, end_date=end_s, adjust=provider_adjust))
             fetchers.append(lambda: self.ak.fund_etf_hist_sina(symbol=f"{infer_exchange(clean).lower()}{clean}"))
-        fetchers.append(lambda: self.ak.stock_zh_a_hist(symbol=clean, period="daily", start_date=start_s, end_date=end_s, adjust=adjust_mode))
+        fetchers.append(lambda: self.ak.stock_zh_a_hist(symbol=clean, period="daily", start_date=start_s, end_date=end_s, adjust=provider_adjust))
         exchange = infer_exchange(clean)
         if exchange:
             fetchers.append(
@@ -98,7 +99,7 @@ class AKShareProvider(MarketDataProvider):
                     symbol=f"{exchange.lower()}{clean}",
                     start_date=start_s,
                     end_date=end_s,
-                    adjust=adjust_mode,
+                    adjust=provider_adjust,
                 )
             )
         for fetcher in fetchers:

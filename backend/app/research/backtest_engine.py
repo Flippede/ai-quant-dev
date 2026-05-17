@@ -2,7 +2,7 @@ from datetime import date
 
 from app.research.contexts import BacktestRequest, BacktestResult, BacktestTradeResult
 from app.research.metrics import calculate_metrics
-from app.research.sample_data import DailyBarPoint, generate_mock_daily_bars
+from app.research.sample_data import DailyBarPoint
 
 
 class BacktestUnsupportedStrategyError(ValueError):
@@ -33,7 +33,7 @@ class BacktestEngine:
         use_cash = bool(request.params.get("use_cash_when_all_negative", True))
         frequency = str(request.params.get("rebalance_frequency", request.assumptions.rebalance_frequency))
 
-        bars_by_symbol = generate_mock_daily_bars(symbols, request.start_date, request.end_date)
+        bars_by_symbol = {symbol: request.bars_by_symbol.get(symbol, []) for symbol in symbols}
         calendar = _calendar_from_bars(bars_by_symbol, request.start_date, request.end_date)
         if len(calendar) < 2:
             raise BacktestInputError("No trading days available in selected date range")
@@ -88,16 +88,17 @@ class BacktestEngine:
             equity_curve=equity_curve,
             trades=trades,
             diagnostics={
-                "strategy": "etf_momentum_rotation",
+            "strategy": "etf_momentum_rotation",
                 "symbols": symbols,
                 "lookback_period": lookback,
                 "secondary_lookback_period": secondary_lookback,
                 "top_n": top_n,
                 "rebalance_frequency": frequency,
                 "trading_days": len(calendar),
+                "data_source": request.assumptions.data_source,
             },
             warnings=[
-                "Phase 5 uses deterministic mock daily bars.",
+                f"Backtest data source: {request.assumptions.data_source}.",
                 "Suspension, limit up/down constraints and corporate action adjustment are not modeled.",
             ],
         )
@@ -134,6 +135,8 @@ def _momentum_scores(
     for symbol, bars in bars_by_symbol.items():
         history = [bar for bar in bars if bar.trade_date <= trade_date]
         if len(history) <= lookback:
+            continue
+        if history[-1].trade_date != trade_date:
             continue
         current = history[-1].close
         primary = current / history[-lookback - 1].close - 1

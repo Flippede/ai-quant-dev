@@ -158,6 +158,8 @@ export type BacktestRun = {
   strategy_template_key: string | null;
   strategy_template_name: string | null;
   status: "pending" | "running" | "succeeded" | "failed";
+  data_source: "mock_daily_bars" | "akshare_daily_bars";
+  adjustment_mode: "none" | "qfq" | "hfq";
   symbols_json: string[];
   start_date: string;
   end_date: string;
@@ -365,6 +367,7 @@ export function createBacktest(payload: {
   initial_cash: number;
   fee_rate: number;
   slippage_rate: number;
+  data_source?: "mock_daily_bars" | "akshare_daily_bars";
   execution_price_type?: "close";
   adjustment_mode?: "none" | "qfq" | "hfq";
 }) {

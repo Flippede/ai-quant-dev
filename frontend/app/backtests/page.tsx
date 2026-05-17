@@ -15,6 +15,8 @@ export default function BacktestsPage() {
   const [initialCash, setInitialCash] = useState(100000);
   const [feeRate, setFeeRate] = useState(0.0003);
   const [slippageRate, setSlippageRate] = useState(0.0005);
+  const [dataSource, setDataSource] = useState<"mock_daily_bars" | "akshare_daily_bars">("akshare_daily_bars");
+  const [adjustmentMode, setAdjustmentMode] = useState<"none" | "qfq" | "hfq">("qfq");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -51,8 +53,9 @@ export default function BacktestsPage() {
         initial_cash: initialCash,
         fee_rate: feeRate,
         slippage_rate: slippageRate,
+        data_source: dataSource,
         execution_price_type: "close",
-        adjustment_mode: "none",
+        adjustment_mode: adjustmentMode,
       });
       router.push(`/backtests/${run.id}`);
     } catch (err) {
@@ -101,6 +104,22 @@ export default function BacktestsPage() {
               <input className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2" value={symbolsText} onChange={(event) => setSymbolsText(event.target.value)} />
             </label>
             <label className="text-sm">
+              <span className="font-medium text-slate-700">数据源</span>
+              <select className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2" value={dataSource} onChange={(event) => setDataSource(event.target.value as typeof dataSource)}>
+                <option value="akshare_daily_bars">AKShare 真实历史数据</option>
+                <option value="mock_daily_bars">Mock 测试数据</option>
+              </select>
+            </label>
+            <label className="text-sm">
+              <span className="font-medium text-slate-700">复权模式</span>
+              <select className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2" value={adjustmentMode} onChange={(event) => setAdjustmentMode(event.target.value as typeof adjustmentMode)}>
+                <option value="qfq">前复权</option>
+                <option value="none">不复权</option>
+                <option value="hfq">后复权</option>
+              </select>
+              <span className="mt-1 block text-xs text-slate-500">默认前复权，便于跨期比较价格序列。</span>
+            </label>
+            <label className="text-sm">
               <span className="font-medium text-slate-700">开始日期</span>
               <input className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2" type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} />
             </label>
@@ -132,8 +151,11 @@ export default function BacktestsPage() {
           </div>
           <div className="divide-y divide-slate-100">
             {runs.map((run) => (
-              <button className="grid w-full gap-2 p-4 text-left text-sm hover:bg-slate-50 md:grid-cols-[1fr_auto_auto_auto]" key={run.id} onClick={() => router.push(`/backtests/${run.id}`)}>
+              <button className="grid w-full gap-2 p-4 text-left text-sm hover:bg-slate-50 md:grid-cols-[1fr_auto_auto_auto_auto]" key={run.id} onClick={() => router.push(`/backtests/${run.id}`)}>
                 <span className="font-medium">{run.strategy_config_name ?? run.strategy_template_name ?? run.id}</span>
+                <span className={run.data_source === "akshare_daily_bars" ? "text-blue-700" : "text-slate-500"}>
+                  {run.data_source === "akshare_daily_bars" ? "AKShare真实历史" : "Mock"}
+                </span>
                 <span>{run.status}</span>
                 <span>{formatPct(run.metrics_json.total_return_pct)}</span>
                 <span className="text-slate-500">{new Date(run.created_at).toLocaleString()}</span>

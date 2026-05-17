@@ -9,6 +9,8 @@ from app.core.timezone import utc_now
 from app.models.core import BacktestRun, BacktestTrade, StrategyTemplate, User, UserStrategyConfig, WatchlistItem
 from app.research.backtest_engine import BacktestEngine, BacktestInputError, BacktestUnsupportedStrategyError
 from app.research.contexts import BacktestAssumptions, BacktestRequest
+from app.research.data_sources import get_backtest_data_source
+from app.research.data_sources.base import BACKTEST_DATA_SOURCES
 from app.schemas.backtests import BacktestRunPublic, BacktestTradePublic
 
 
@@ -28,6 +30,7 @@ def create_backtest(
     slippage_rate: float,
     execution_price_type: str,
     adjustment_mode: str,
+    data_source: str,
 ) -> BacktestRunPublic:
     config = db.scalar(select(UserStrategyConfig).where(UserStrategyConfig.id == strategy_config_id, UserStrategyConfig.user_id == user.id))
     if config is None:
@@ -36,9 +39,19 @@ def create_backtest(
     if template is None:
         raise BacktestServiceError("Strategy template not found")
     if template.key != "etf_momentum_rotation":
-        raise BacktestServiceError(f"Strategy {template.key} is not supported for Phase 5 backtesting")
+        raise BacktestServiceError(f"Strategy {template.key} is not supported for Phase 7A backtesting")
+    if data_source not in BACKTEST_DATA_SOURCES:
+        raise BacktestServiceError(f"Unsupported backtest data source: {data_source}")
 
     resolved_symbols = _resolve_symbols(db, user, config, symbols)
+    data_source_loader = get_backtest_data_source(data_source)
+    try:
+        market_data = data_source_loader.load_daily_bars(resolved_symbols, start_date, end_date, adjustment_mode)
+    except Exception as exc:
+        raise BacktestServiceError(f"Failed to load backtest market data: {exc}") from exc
+    if not market_data.bars_by_symbol:
+        raise BacktestServiceError("No historical daily bars available for selected symbols")
+
     assumptions = BacktestAssumptions(
         initial_cash=initial_cash,
         fee_rate=fee_rate,
@@ -46,6 +59,14 @@ def create_backtest(
         execution_price_type=execution_price_type,
         adjustment_mode=adjustment_mode,
         rebalance_frequency=str(config.params_json.get("rebalance_frequency", "weekly")),
+        data_source=data_source,
+        requested_start_date=start_date,
+        requested_end_date=end_date,
+        actual_start_date=market_data.actual_start_date,
+        actual_end_date=market_data.actual_end_date,
+        provider_name=data_source_loader.provider_name,
+        provider_warnings=market_data.warnings,
+        data_quality=market_data.data_quality_json(),
     )
     run = BacktestRun(
         user_id=user.id,
@@ -59,6 +80,8 @@ def create_backtest(
         status="pending",
         metrics_json={},
         equity_curve_json=[],
+        data_source=data_source,
+        adjustment_mode=adjustment_mode,
     )
     db.add(run)
     db.commit()
@@ -81,6 +104,7 @@ def create_backtest(
                 end_date=end_date,
                 params=config.params_json,
                 assumptions=assumptions,
+                bars_by_symbol=market_data.bars_by_symbol,
             )
         )
     except (BacktestInputError, BacktestUnsupportedStrategyError) as exc:
@@ -101,7 +125,13 @@ def create_backtest(
     run.status = "succeeded"
     run.metrics_json = result.metrics
     run.equity_curve_json = result.equity_curve
-    run.assumptions_json = {**run.assumptions_json, "diagnostics": result.diagnostics, "warnings": result.warnings}
+    run.assumptions_json = {
+        **run.assumptions_json,
+        "diagnostics": result.diagnostics,
+        "warnings": [*market_data.warnings, *result.warnings],
+        "provider_warnings": market_data.warnings,
+        "data_quality": market_data.data_quality_json(),
+    }
     run.finished_at = utc_now()
     for trade in result.trades:
         db.add(
@@ -222,6 +252,8 @@ def _run_public(
         strategy_template_key=template.key if template else None,
         strategy_template_name=template.name if template else None,
         status=run.status,
+        data_source=run.data_source,
+        adjustment_mode=run.adjustment_mode,
         symbols_json=run.symbols_json,
         start_date=run.start_date,
         end_date=run.end_date,
