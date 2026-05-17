@@ -21,6 +21,14 @@ class Settings(BaseSettings):
     signal_cooldown_seconds: int = Field(default=1800)
     market_refresh_interval_seconds: int = Field(default=60)
     strategy_scan_interval_seconds: int = Field(default=60)
+    ai_provider: str = Field(default="mock")
+    ai_base_url: str | None = None
+    ai_api_key: str | None = None
+    ai_model: str = Field(default="mock-ai")
+    ai_timeout_seconds: int = Field(default=30)
+    ai_max_output_tokens: int = Field(default=1200)
+    ai_rate_limit_window_seconds: int = Field(default=30)
+    ai_rate_limit_max_requests: int = Field(default=5)
 
     @cached_property
     def cors_origins(self) -> list[str]:

@@ -3,10 +3,12 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
+  AIResponse,
   StrategyConfig,
   StrategyTemplate,
   WatchScope,
   deleteStrategyConfig,
+  explainStrategyConfig,
   getCurrentUser,
   getStrategyConfig,
   getStrategyTemplate,
@@ -27,6 +29,8 @@ export default function StrategyConfigDetailPage() {
   const [isEnabled, setIsEnabled] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [aiResult, setAiResult] = useState<AIResponse | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
 
   const orderedParamKeys = useMemo(() => {
     if (!template) {
@@ -97,6 +101,18 @@ export default function StrategyConfigDetailPage() {
     }
   }
 
+  async function handleAIExplain() {
+    setError("");
+    setAiLoading(true);
+    try {
+      setAiResult(await explainStrategyConfig(params.id));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "AI 解释失败");
+    } finally {
+      setAiLoading(false);
+    }
+  }
+
   if (!config || !template) {
     return <main className="flex min-h-screen items-center justify-center text-sm text-slate-600">Loading...</main>;
   }
@@ -116,6 +132,9 @@ export default function StrategyConfigDetailPage() {
             <button className="rounded-md border border-red-300 px-4 py-2 text-sm text-red-700" onClick={handleDelete} type="button">
               删除
             </button>
+            <button className="rounded-md border border-slate-300 px-4 py-2 text-sm" disabled={aiLoading} onClick={handleAIExplain} type="button">
+              {aiLoading ? "解释中..." : "AI解释当前策略"}
+            </button>
             <button className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-white" type="submit">
               保存
             </button>
@@ -124,6 +143,13 @@ export default function StrategyConfigDetailPage() {
 
         {error ? <p className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</p> : null}
         {message ? <p className="rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">{message}</p> : null}
+        {aiResult ? (
+          <section className="rounded-lg border border-slate-200 bg-panel p-5">
+            <h2 className="font-semibold">AI 策略解释</h2>
+            <p className="mt-1 text-xs text-slate-500">Provider: {aiResult.provider} / Model: {aiResult.model ?? "-"}</p>
+            <AIResultBlock result={aiResult} />
+          </section>
+        ) : null}
 
         <section className="rounded-lg border border-slate-200 bg-panel p-5">
           <h2 className="font-semibold">基础配置</h2>
@@ -233,6 +259,32 @@ export default function StrategyConfigDetailPage() {
       </form>
     </main>
   );
+}
+
+function AIResultBlock({ result }: { result: AIResponse }) {
+  if (!result.parsed_json) {
+    return <p className="mt-4 whitespace-pre-wrap text-sm leading-6 text-slate-700">{result.content}</p>;
+  }
+  return (
+    <div className="mt-4 grid gap-3">
+      {Object.entries(result.parsed_json).map(([key, value]) => (
+        <div className="rounded-md border border-slate-200 p-3 text-sm" key={key}>
+          <p className="font-medium text-slate-700">{key}</p>
+          <p className="mt-2 whitespace-pre-wrap leading-6 text-slate-600">{formatAIValue(value)}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function formatAIValue(value: unknown) {
+  if (Array.isArray(value)) {
+    return value.map((item) => `- ${String(item)}`).join("\n");
+  }
+  if (value && typeof value === "object") {
+    return JSON.stringify(value, null, 2);
+  }
+  return String(value ?? "");
 }
 
 function formatParamValue(value: unknown) {

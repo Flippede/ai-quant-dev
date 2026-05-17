@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
+  AIResponse,
   CurrentUser,
   BacktestSummary,
   MarketOverview,
@@ -17,6 +18,7 @@ import {
   getRecentSignals,
   getStrategySummary,
   getWatchlistGroups,
+  generateDashboardSummary,
   logout,
 } from "@/lib/api/client";
 
@@ -29,6 +31,9 @@ export default function DashboardPage() {
   const [backtestSummary, setBacktestSummary] = useState<BacktestSummary | null>(null);
   const [signals, setSignals] = useState<StrategySignal[]>([]);
   const [monitoringStatus, setMonitoringStatus] = useState<MonitoringStatus | null>(null);
+  const [aiSummary, setAiSummary] = useState<AIResponse | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState("");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -59,6 +64,18 @@ export default function DashboardPage() {
     router.replace("/login");
   }
 
+  async function handleAISummary() {
+    setAiError("");
+    setAiLoading(true);
+    try {
+      setAiSummary(await generateDashboardSummary());
+    } catch (err) {
+      setAiError(err instanceof Error ? err.message : "AI 摘要生成失败");
+    } finally {
+      setAiLoading(false);
+    }
+  }
+
   if (loading) {
     return <main className="flex min-h-screen items-center justify-center text-sm text-slate-600">Loading...</main>;
   }
@@ -81,6 +98,12 @@ export default function DashboardPage() {
             </p>
           </div>
           <div className="flex items-center gap-3">
+            <button
+              className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium"
+              onClick={() => router.push("/ai/strategy-advisor")}
+            >
+              AI助手
+            </button>
             <button
               className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium"
               onClick={() => router.push("/signals")}
@@ -124,6 +147,20 @@ export default function DashboardPage() {
             </button>
           </div>
         </header>
+
+        <section className="rounded-lg border border-slate-200 bg-panel p-5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-lg font-semibold">AI 今日策略摘要</h2>
+              <p className="mt-1 text-sm text-slate-600">基于当前用户策略、信号、回测和自选池生成，不代表投资承诺。</p>
+            </div>
+            <button className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-white disabled:opacity-60" disabled={aiLoading} onClick={handleAISummary}>
+              {aiLoading ? "生成中..." : "生成今日策略摘要"}
+            </button>
+          </div>
+          {aiError ? <p className="mt-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">{aiError}</p> : null}
+          {aiSummary ? <AIResultBlock result={aiSummary} /> : null}
+        </section>
 
         <section className="grid gap-4 md:grid-cols-3">
           {overview?.indices.map((quote) => (
@@ -296,4 +333,30 @@ export default function DashboardPage() {
 
 function formatPct(value: unknown) {
   return typeof value === "number" ? `${value.toFixed(2)}%` : "-";
+}
+
+function AIResultBlock({ result }: { result: AIResponse }) {
+  if (!result.parsed_json) {
+    return <p className="mt-4 whitespace-pre-wrap text-sm leading-6 text-slate-700">{result.content}</p>;
+  }
+  return (
+    <div className="mt-4 grid gap-3 md:grid-cols-2">
+      {Object.entries(result.parsed_json).map(([key, value]) => (
+        <div className="rounded-md border border-slate-200 p-3 text-sm" key={key}>
+          <p className="font-medium text-slate-700">{key}</p>
+          <p className="mt-2 whitespace-pre-wrap leading-6 text-slate-600">{formatAIValue(value)}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function formatAIValue(value: unknown) {
+  if (Array.isArray(value)) {
+    return value.map((item) => `- ${String(item)}`).join("\n");
+  }
+  if (value && typeof value === "object") {
+    return JSON.stringify(value, null, 2);
+  }
+  return String(value ?? "");
 }

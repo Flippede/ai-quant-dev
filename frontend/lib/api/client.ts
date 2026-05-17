@@ -208,6 +208,37 @@ export type MonitoringStatus = {
   is_market_session: boolean;
 };
 
+export type AIResponse = {
+  conversation_id: string;
+  content: string;
+  parsed_json: Record<string, unknown> | null;
+  provider: string;
+  model: string | null;
+};
+
+export type AIConversation = {
+  id: string;
+  title: string;
+  provider: string;
+  model: string | null;
+  context_type: string | null;
+  context_id: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type AIMessage = {
+  id: string;
+  role: string;
+  content: string;
+  metadata_json: Record<string, unknown>;
+  created_at: string;
+};
+
+export type AIConversationDetail = AIConversation & {
+  messages: AIMessage[];
+};
+
 export async function apiRequest<T>(path: string, options: RequestInit = {}): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...options,
@@ -405,4 +436,35 @@ export function getSignal(signalId: string) {
 
 export function getMonitoringStatus() {
   return apiRequest<MonitoringStatus>("/api/system/monitoring-status");
+}
+
+export function runStrategyAdvisor(payload: { user_prompt: string; risk_preference?: string; asset_focus?: string }) {
+  return apiRequest<AIResponse>("/api/ai/strategy-advisor", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function explainStrategyConfig(configId: string) {
+  return apiRequest<AIResponse>(`/api/ai/strategy-configs/${configId}/explain`, { method: "POST" });
+}
+
+export function explainBacktest(runId: string) {
+  return apiRequest<AIResponse>(`/api/ai/backtests/${runId}/explain`, { method: "POST" });
+}
+
+export function explainSignal(signalId: string) {
+  return apiRequest<AIResponse>(`/api/ai/signals/${signalId}/explain`, { method: "POST" });
+}
+
+export function generateDashboardSummary() {
+  return apiRequest<AIResponse>("/api/ai/dashboard-summary", { method: "POST" });
+}
+
+export function getAIConversations() {
+  return apiRequest<AIConversation[]>("/api/ai/conversations");
+}
+
+export function getAIConversation(conversationId: string) {
+  return apiRequest<AIConversationDetail>(`/api/ai/conversations/${conversationId}`);
 }

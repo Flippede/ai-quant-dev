@@ -2,13 +2,15 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { BacktestRun, deleteBacktest, getBacktest, getCurrentUser } from "@/lib/api/client";
+import { AIResponse, BacktestRun, deleteBacktest, explainBacktest, getBacktest, getCurrentUser } from "@/lib/api/client";
 
 export default function BacktestDetailPage() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
   const [run, setRun] = useState<BacktestRun | null>(null);
   const [error, setError] = useState("");
+  const [aiResult, setAiResult] = useState<AIResponse | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
 
   useEffect(() => {
     getCurrentUser()
@@ -28,6 +30,21 @@ export default function BacktestDetailPage() {
       router.push("/backtests");
     } catch (err) {
       setError(err instanceof Error ? err.message : "删除失败");
+    }
+  }
+
+  async function handleAIExplain() {
+    if (!run) {
+      return;
+    }
+    setError("");
+    setAiLoading(true);
+    try {
+      setAiResult(await explainBacktest(run.id));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "AI 解读失败");
+    } finally {
+      setAiLoading(false);
     }
   }
 
@@ -55,6 +72,9 @@ export default function BacktestDetailPage() {
             <button className="rounded-md border border-slate-300 px-4 py-2 text-sm" onClick={() => router.push("/backtests")}>
               返回回测中心
             </button>
+            <button className="rounded-md border border-slate-300 px-4 py-2 text-sm" disabled={aiLoading} onClick={handleAIExplain}>
+              {aiLoading ? "解读中..." : "AI解读本次回测"}
+            </button>
             <button className="rounded-md border border-red-300 px-4 py-2 text-sm text-red-700" onClick={handleDelete}>
               删除
             </button>
@@ -62,6 +82,13 @@ export default function BacktestDetailPage() {
         </header>
 
         {error ? <p className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</p> : null}
+        {aiResult ? (
+          <section className="rounded-lg border border-slate-200 bg-panel p-5">
+            <h2 className="font-semibold">AI 回测解读</h2>
+            <p className="mt-1 text-xs text-slate-500">Provider: {aiResult.provider} / Model: {aiResult.model ?? "-"}</p>
+            <AIResultBlock result={aiResult} />
+          </section>
+        ) : null}
 
         <section className="grid gap-4 md:grid-cols-4">
           <MetricCard label="总收益" value={formatPct(run.metrics_json.total_return_pct)} />
@@ -159,6 +186,32 @@ export default function BacktestDetailPage() {
       </section>
     </main>
   );
+}
+
+function AIResultBlock({ result }: { result: AIResponse }) {
+  if (!result.parsed_json) {
+    return <p className="mt-4 whitespace-pre-wrap text-sm leading-6 text-slate-700">{result.content}</p>;
+  }
+  return (
+    <div className="mt-4 grid gap-3">
+      {Object.entries(result.parsed_json).map(([key, value]) => (
+        <div className="rounded-md border border-slate-200 p-3 text-sm" key={key}>
+          <p className="font-medium text-slate-700">{key}</p>
+          <p className="mt-2 whitespace-pre-wrap leading-6 text-slate-600">{formatAIValue(value)}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function formatAIValue(value: unknown) {
+  if (Array.isArray(value)) {
+    return value.map((item) => `- ${String(item)}`).join("\n");
+  }
+  if (value && typeof value === "object") {
+    return JSON.stringify(value, null, 2);
+  }
+  return String(value ?? "");
 }
 
 function MetricCard({ label, value }: { label: string; value: string }) {

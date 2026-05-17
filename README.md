@@ -88,6 +88,19 @@ Important defaults:
 - Redis: `localhost:6379`
 - Market timezone: `Asia/Shanghai`
 
+AI assistant defaults to `MockAIProvider` so local and test environments work without an external model. To use an OpenAI-compatible chat completions endpoint, set:
+
+```env
+AI_PROVIDER=openai_compatible
+AI_BASE_URL=https://your-provider.example/v1
+AI_API_KEY=your-key
+AI_MODEL=your-model
+AI_TIMEOUT_SECONDS=30
+AI_MAX_OUTPUT_TOKENS=1200
+```
+
+The application calls `POST {AI_BASE_URL}/chat/completions` and stores AI conversations per user in PostgreSQL. Do not commit real API keys.
+
 If those host ports are already occupied, override `FRONTEND_HOST_PORT`, `BACKEND_HOST_PORT`, `POSTGRES_HOST_PORT`, or `REDIS_HOST_PORT` in `.env`.
 
 When changing frontend/backend host ports, also update:
