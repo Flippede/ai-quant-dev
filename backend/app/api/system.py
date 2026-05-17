@@ -7,19 +7,20 @@ from app.core.deps import get_current_user, require_admin
 from app.market_data.provider import get_market_data_provider_name
 from app.models.core import User
 from app.monitoring.market_time import is_cn_market_session_now
-from app.services.monitoring_service import monitoring_status, refresh_market_quotes_once, scan_enabled_strategies_once
+from app.services.monitoring_service import get_monitoring_status_snapshot, refresh_market_quotes_once, scan_enabled_strategies_once
 
 router = APIRouter(prefix="/api/system", tags=["system"])
 
 
 @router.get("/monitoring-status")
 def monitoring_status_api(_: User = Depends(get_current_user)) -> dict:
+    snapshot = get_monitoring_status_snapshot()
     return {
         "provider": get_market_data_provider_name(),
-        "scheduler_running": monitoring_status.scheduler_running,
-        "last_quote_refresh_at": monitoring_status.last_quote_refresh_at,
-        "last_strategy_scan_at": monitoring_status.last_strategy_scan_at,
-        "last_error": monitoring_status.last_error,
+        "scheduler_running": snapshot["scheduler_running"],
+        "last_quote_refresh_at": snapshot["last_quote_refresh_at"],
+        "last_strategy_scan_at": snapshot["last_strategy_scan_at"],
+        "last_error": snapshot["last_error"],
         "is_market_session": is_cn_market_session_now(),
     }
 

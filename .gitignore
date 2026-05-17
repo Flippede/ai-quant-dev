@@ -4,6 +4,7 @@
 !.env.example
 !.env.production.example
 backups/
+acme/
 
 __pycache__/
 *.py[cod]

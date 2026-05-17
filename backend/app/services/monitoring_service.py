@@ -8,6 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.core.redis import get_redis_client
 from app.core.timezone import utc_now
 from app.market_data.base import Bar, Quote
 from app.market_data.provider import get_market_data_provider, get_market_data_provider_name
@@ -27,6 +28,13 @@ class MonitoringStatus:
 
 
 monitoring_status = MonitoringStatus()
+MONITORING_STATUS_KEY = "system:monitoring_status"
+
+
+def mark_scheduler_heartbeat(running: bool = True) -> None:
+    now = utc_now()
+    monitoring_status.scheduler_running = running
+    _write_status({"scheduler_running": str(running).lower(), "scheduler_heartbeat_at": now.isoformat()})
 
 
 def refresh_market_quotes_once(db: Session) -> int:
@@ -41,6 +49,7 @@ def refresh_market_quotes_once(db: Session) -> int:
             logger.exception("Market quote refresh failed symbols=%s", ",".join(symbols[:20]))
             raise
     monitoring_status.last_quote_refresh_at = utc_now()
+    _write_status({"last_quote_refresh_at": monitoring_status.last_quote_refresh_at.isoformat(), "last_error": ""})
     return len(symbols)
 
 
@@ -73,7 +82,25 @@ def scan_enabled_strategies_once(db: Session, force: bool = False) -> int:
                     written += 1
     db.commit()
     monitoring_status.last_strategy_scan_at = utc_now()
+    _write_status({"last_strategy_scan_at": monitoring_status.last_strategy_scan_at.isoformat(), "last_error": ""})
     return written
+
+
+def record_monitoring_error(message: str) -> None:
+    monitoring_status.last_error = message
+    _write_status({"last_error": message})
+
+
+def get_monitoring_status_snapshot() -> dict[str, Any]:
+    data = get_redis_client().hgetall(MONITORING_STATUS_KEY)
+    heartbeat = _parse_iso(data.get("scheduler_heartbeat_at"))
+    scheduler_running = data.get("scheduler_running") == "true" and heartbeat is not None and (utc_now() - heartbeat).total_seconds() < max(120, settings.market_refresh_interval_seconds * 3)
+    return {
+        "scheduler_running": scheduler_running,
+        "last_quote_refresh_at": _parse_iso(data.get("last_quote_refresh_at")) or monitoring_status.last_quote_refresh_at,
+        "last_strategy_scan_at": _parse_iso(data.get("last_strategy_scan_at")) or monitoring_status.last_strategy_scan_at,
+        "last_error": data.get("last_error") or monitoring_status.last_error,
+    }
 
 
 def _evaluate(template_key: str, params: dict[str, Any], symbol: str, quote: Quote | None, bars: list[Bar]) -> list[dict[str, Any]]:
@@ -192,3 +219,20 @@ def _avg(values: list[float]) -> float:
 def _std(values: list[float]) -> float:
     avg = _avg(values)
     return (sum((value - avg) ** 2 for value in values) / len(values)) ** 0.5
+
+
+def _write_status(values: dict[str, str]) -> None:
+    try:
+        get_redis_client().hset(MONITORING_STATUS_KEY, mapping=values)
+        get_redis_client().expire(MONITORING_STATUS_KEY, max(300, settings.market_refresh_interval_seconds * 5))
+    except Exception:
+        logger.exception("Failed to write monitoring status to Redis")
+
+
+def _parse_iso(value: str | None) -> datetime | None:
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(value)
+    except ValueError:
+        return None
