@@ -15,6 +15,10 @@ class Quote:
     pct_change: Decimal
     volume: Decimal
     amount: Decimal
+    exchange: str | None = None
+    provider: str = "mock"
+    is_stale: bool = False
+    source_status: str = "ok"
 
 
 @dataclass(frozen=True)
@@ -43,12 +47,18 @@ class Bar:
 
 class MarketDataProvider(ABC):
     @abstractmethod
-    def get_realtime_quotes(self, symbols: list[str]) -> list[Quote]:
+    def get_realtime_quotes(self, instruments: list[str]) -> list[Quote]:
         raise NotImplementedError
 
     @abstractmethod
-    def get_daily_bars(self, symbol: str, start: date, end: date) -> list[Bar]:
+    def get_daily_bars(self, symbol: str, market: str, start: date, end: date, adjust_mode: str = "qfq") -> list[Bar]:
         raise NotImplementedError
+
+    def get_recent_daily_bars(self, symbol: str, market: str, periods: int, adjust_mode: str = "qfq") -> list[Bar]:
+        end = date.today()
+        start = end.replace(year=end.year - 1)
+        bars = self.get_daily_bars(symbol, market, start, end, adjust_mode)
+        return bars[-periods:]
 
     @abstractmethod
     def get_intraday_bars(self, symbol: str, freq: str, start: datetime, end: datetime) -> list[Bar]:

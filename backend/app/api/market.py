@@ -19,6 +19,8 @@ router = APIRouter(tags=["market"])
 @router.get("/api/market/overview", response_model=MarketOverviewResponse)
 def market_overview(_: User = Depends(get_current_user), db: Session = Depends(get_db)) -> MarketOverviewResponse:
     indices = get_market_overview(db)
+    if not indices:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Market overview unavailable")
     updated_at = max(item.updated_at for item in indices)
     return MarketOverviewResponse(indices=indices, updated_at=updated_at)
 
@@ -55,4 +57,3 @@ def instrument_detail(
         instrument=InstrumentPublic.model_validate(instrument),
         quote=quote_for_instrument(db, instrument),
     )
-

@@ -243,6 +243,8 @@ export default function WatchlistPage() {
                       <p className={item.quote && item.quote.pct_change >= 0 ? "text-red-600" : "text-emerald-700"}>
                         {item.quote ? `${item.quote.pct_change >= 0 ? "+" : ""}${item.quote.pct_change.toFixed(2)}%` : "-"}
                       </p>
+                      {item.quote?.is_stale ? <p className="mt-1 text-xs text-amber-700">数据可能延迟</p> : null}
+                      {item.quote ? <p className="mt-1 text-xs text-slate-500">{new Date(item.quote.updated_at).toLocaleString()}</p> : null}
                     </div>
                     <div className="flex gap-2 md:justify-end">
                       <button className="rounded-md border border-slate-300 px-3 py-1 text-sm" onClick={() => handleNote(item.id, item.note)}>

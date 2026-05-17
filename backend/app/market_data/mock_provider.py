@@ -78,7 +78,7 @@ class MockMarketDataProvider(MarketDataProvider):
             )
         return quotes
 
-    def get_daily_bars(self, symbol: str, start: date, end: date) -> list[Bar]:
+    def get_daily_bars(self, symbol: str, market: str, start: date, end: date, adjust_mode: str = "qfq") -> list[Bar]:
         bars: list[Bar] = []
         current = start
         price = PRICE_BASES.get(symbol, Decimal("10"))

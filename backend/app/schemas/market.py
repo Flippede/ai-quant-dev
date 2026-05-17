@@ -27,6 +27,10 @@ class QuotePublic(BaseModel):
     volume: float
     amount: float
     updated_at: datetime
+    exchange: str | None = None
+    provider: str = "mock"
+    is_stale: bool = False
+    source_status: str = "ok"
 
 
 class MarketOverviewResponse(BaseModel):
@@ -41,4 +45,3 @@ class QuotesRequest(BaseModel):
 class InstrumentDetailResponse(BaseModel):
     instrument: InstrumentPublic
     quote: QuotePublic
-

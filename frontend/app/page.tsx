@@ -6,11 +6,15 @@ import {
   CurrentUser,
   BacktestSummary,
   MarketOverview,
+  MonitoringStatus,
+  StrategySignal,
   StrategySummary,
   WatchlistGroup,
   getCurrentUser,
   getBacktestSummary,
   getMarketOverview,
+  getMonitoringStatus,
+  getRecentSignals,
   getStrategySummary,
   getWatchlistGroups,
   logout,
@@ -23,22 +27,28 @@ export default function DashboardPage() {
   const [groups, setGroups] = useState<WatchlistGroup[]>([]);
   const [strategySummary, setStrategySummary] = useState<StrategySummary | null>(null);
   const [backtestSummary, setBacktestSummary] = useState<BacktestSummary | null>(null);
+  const [signals, setSignals] = useState<StrategySignal[]>([]);
+  const [monitoringStatus, setMonitoringStatus] = useState<MonitoringStatus | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     getCurrentUser()
       .then(async (currentUser) => {
         setUser(currentUser);
-        const [overviewData, groupData, strategyData, backtestData] = await Promise.all([
+        const [overviewData, groupData, strategyData, backtestData, signalData, statusData] = await Promise.all([
           getMarketOverview(),
           getWatchlistGroups(),
           getStrategySummary(),
           getBacktestSummary(),
+          getRecentSignals(6),
+          getMonitoringStatus(),
         ]);
         setOverview(overviewData);
         setGroups(groupData);
         setStrategySummary(strategyData);
         setBacktestSummary(backtestData);
+        setSignals(signalData);
+        setMonitoringStatus(statusData);
       })
       .catch(() => router.replace("/login"))
       .finally(() => setLoading(false));
@@ -67,10 +77,16 @@ export default function DashboardPage() {
               AI 量化盯盘平台
             </h1>
             <p className="mt-3 max-w-2xl text-base leading-7 text-slate-600">
-              市场概览与自选池摘要基于 Mock 行情源，关键数据已服务端持久化。
+              市场概览、自选池和策略信号使用统一行情 Provider，最近成功快照会服务端持久化。
             </p>
           </div>
           <div className="flex items-center gap-3">
+            <button
+              className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium"
+              onClick={() => router.push("/signals")}
+            >
+              信号
+            </button>
             <button
               className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium"
               onClick={() => router.push("/backtests")}
@@ -124,8 +140,28 @@ export default function DashboardPage() {
               </div>
               <p className="mt-4 text-2xl font-semibold">{quote.last_price.toFixed(2)}</p>
               <p className="mt-2 text-xs text-slate-500">{new Date(quote.updated_at).toLocaleString()}</p>
+              {quote.is_stale ? <p className="mt-2 text-xs font-medium text-amber-700">数据可能延迟</p> : null}
             </article>
           ))}
+        </section>
+
+        <section className="rounded-lg border border-slate-200 bg-panel p-5">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <h2 className="text-lg font-semibold">监控状态</h2>
+              <p className="mt-1 text-sm text-slate-600">
+                Provider: {monitoringStatus?.provider ?? "-"} / {monitoringStatus?.is_market_session ? "交易时段" : "非交易时段"}
+              </p>
+            </div>
+            <span className={monitoringStatus?.scheduler_running ? "text-sm font-medium text-emerald-700" : "text-sm font-medium text-amber-700"}>
+              {monitoringStatus?.scheduler_running ? "调度运行中" : "调度未运行"}
+            </span>
+          </div>
+          <div className="mt-3 grid gap-3 text-sm md:grid-cols-3">
+            <span>行情刷新：{monitoringStatus?.last_quote_refresh_at ? new Date(monitoringStatus.last_quote_refresh_at).toLocaleString() : "-"}</span>
+            <span>策略扫描：{monitoringStatus?.last_strategy_scan_at ? new Date(monitoringStatus.last_strategy_scan_at).toLocaleString() : "-"}</span>
+            <span className="text-red-600">{monitoringStatus?.last_error ?? ""}</span>
+          </div>
         </section>
 
         <section className="rounded-lg border border-slate-200 bg-panel p-5">
@@ -161,6 +197,33 @@ export default function DashboardPage() {
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+        </section>
+
+        <section className="rounded-lg border border-slate-200 bg-panel p-5">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <h2 className="text-lg font-semibold">今日策略信号</h2>
+              <p className="mt-1 text-sm text-slate-600">最新趋势、突破、ETF 动量与风险预警。</p>
+            </div>
+            <button className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-white" onClick={() => router.push("/signals")}>
+              查看信号
+            </button>
+          </div>
+          {signals.length > 0 ? (
+            <div className="mt-5 divide-y divide-slate-100 rounded-md border border-slate-200">
+              {signals.map((signal) => (
+                <button className="grid w-full gap-2 p-3 text-left text-sm md:grid-cols-[120px_1fr_auto]" key={signal.id} onClick={() => router.push("/signals")}>
+                  <span className="font-medium">{signal.symbol}</span>
+                  <span>{signal.title}</span>
+                  <span className="text-slate-500">{new Date(signal.triggered_at).toLocaleString()}</span>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="mt-5 rounded-md border border-dashed border-slate-300 p-5 text-sm text-slate-600">
+              暂无策略信号。交易时段调度会自动扫描，也可由管理员手动触发一次扫描。
             </div>
           )}
         </section>

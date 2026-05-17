@@ -16,6 +16,11 @@ class Settings(BaseSettings):
     session_cookie_secure: bool = False
     session_expire_hours: int = 168
     market_timezone: str = Field(default="Asia/Shanghai")
+    market_data_provider: str = Field(default="akshare")
+    market_cache_ttl_seconds: int = Field(default=30)
+    signal_cooldown_seconds: int = Field(default=1800)
+    market_refresh_interval_seconds: int = Field(default=60)
+    strategy_scan_interval_seconds: int = Field(default=60)
 
     @cached_property
     def cors_origins(self) -> list[str]:

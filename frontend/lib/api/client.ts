@@ -23,6 +23,10 @@ export type Quote = {
   volume: number;
   amount: number;
   updated_at: string;
+  exchange?: string | null;
+  provider?: string;
+  is_stale?: boolean;
+  source_status?: string;
 };
 
 export type MarketOverview = {
@@ -172,6 +176,34 @@ export type BacktestRun = {
 export type BacktestSummary = {
   total_count: number;
   recent_runs: BacktestRun[];
+};
+
+export type StrategySignal = {
+  id: string;
+  user_id: string;
+  strategy_config_id: string | null;
+  template_id: string | null;
+  strategy_config_name: string | null;
+  template_name: string | null;
+  symbol: string;
+  market: string;
+  signal_type: string;
+  severity: string;
+  title: string;
+  message: string;
+  score: number | null;
+  payload_json: Record<string, unknown>;
+  triggered_at: string;
+  created_at: string;
+};
+
+export type MonitoringStatus = {
+  provider: string;
+  scheduler_running: boolean;
+  last_quote_refresh_at: string | null;
+  last_strategy_scan_at: string | null;
+  last_error: string | null;
+  is_market_session: boolean;
 };
 
 export async function apiRequest<T>(path: string, options: RequestInit = {}): Promise<T> {
@@ -348,4 +380,26 @@ export function getBacktest(runId: string) {
 
 export function deleteBacktest(runId: string) {
   return apiRequest<{ status: string }>(`/api/backtests/${runId}`, { method: "DELETE" });
+}
+
+export function getRecentSignals(limit = 10) {
+  return apiRequest<StrategySignal[]>(`/api/signals/recent?limit=${limit}`);
+}
+
+export function getSignals(params: { severity?: string; signal_type?: string; symbol?: string; limit?: number } = {}) {
+  const query = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== "") {
+      query.set(key, String(value));
+    }
+  });
+  return apiRequest<StrategySignal[]>(`/api/signals${query.toString() ? `?${query.toString()}` : ""}`);
+}
+
+export function getSignal(signalId: string) {
+  return apiRequest<StrategySignal>(`/api/signals/${signalId}`);
+}
+
+export function getMonitoringStatus() {
+  return apiRequest<MonitoringStatus>("/api/system/monitoring-status");
 }
