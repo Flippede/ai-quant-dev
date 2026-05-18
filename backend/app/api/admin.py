@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -61,13 +61,16 @@ def enable_user_api(user_id: str, _: User = Depends(require_admin), db: Session 
 def reset_user_password(
     user_id: str,
     payload: ResetPasswordRequest,
-    _: User = Depends(require_admin),
+    request: Request,
+    current_admin: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ) -> dict[str, str]:
     user = db.get(User, parse_user_id(user_id))
     if user is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     reset_password(db, user, payload.password)
-    revoke_user_sessions(db, user.id)
-    return {"status": "ok", "session_policy": "all_user_sessions_revoked"}
-
+    current_session = getattr(request.state, "auth_session", None)
+    exclude_session_id = current_session.id if user.id == current_admin.id and current_session is not None else None
+    revoke_user_sessions(db, user.id, exclude_session_id=exclude_session_id)
+    policy = "current_session_retained" if exclude_session_id is not None else "all_user_sessions_revoked"
+    return {"status": "ok", "session_policy": policy}

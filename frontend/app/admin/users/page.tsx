@@ -2,10 +2,11 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AdminUser, apiRequest, getCurrentUser, logout } from "@/lib/api/client";
+import { AdminUser, CurrentUser, apiRequest, getCurrentUser, logout } from "@/lib/api/client";
 
 export default function AdminUsersPage() {
   const router = useRouter();
+  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [error, setError] = useState("");
   const [username, setUsername] = useState("");
@@ -25,6 +26,7 @@ export default function AdminUsersPage() {
           router.replace("/");
           return;
         }
+        setCurrentUser(user);
         return loadUsers();
       })
       .catch(() => router.replace("/login"));
@@ -153,16 +155,25 @@ export default function AdminUsersPage() {
                     >
                       {user.is_active ? "禁用" : "启用"}
                     </button>
-                    <input
-                      className="w-40 rounded-md border border-slate-300 px-2 py-1"
-                      placeholder="new password"
-                      type="password"
-                      value={resetPasswords[user.id] ?? ""}
-                      onChange={(event) => setResetPasswords((current) => ({ ...current, [user.id]: event.target.value }))}
-                    />
-                    <button className="rounded-md border border-slate-300 px-3 py-1" onClick={() => resetPassword(user.id)} type="button">
-                      重置密码
-                    </button>
+                    {currentUser?.id === user.id ? (
+                      <button className="rounded-md border border-slate-300 px-3 py-1" onClick={() => router.push("/change-password")} type="button">
+                        修改自己的密码
+                      </button>
+                    ) : (
+                      <>
+                        <input
+                          className="w-40 rounded-md border border-slate-300 px-2 py-1"
+                          minLength={8}
+                          placeholder="new password"
+                          type="password"
+                          value={resetPasswords[user.id] ?? ""}
+                          onChange={(event) => setResetPasswords((current) => ({ ...current, [user.id]: event.target.value }))}
+                        />
+                        <button className="rounded-md border border-slate-300 px-3 py-1" onClick={() => resetPassword(user.id)} type="button">
+                          重置密码
+                        </button>
+                      </>
+                    )}
                   </td>
                 </tr>
               ))}
