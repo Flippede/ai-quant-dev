@@ -1,416 +1,251 @@
-"use client";
+import Link from "next/link";
 
-import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
-import {
-  AIResponse,
-  CurrentUser,
-  BacktestSummary,
-  MarketOverview,
-  MonitoringStatus,
-  StrategySignal,
-  StrategySummary,
-  WatchlistGroup,
-  getCurrentUser,
-  getBacktestSummary,
-  getMarketOverview,
-  getMonitoringStatus,
-  getRecentSignals,
-  getStrategySummary,
-  getWatchlistGroups,
-  generateDashboardSummary,
-  logout,
-} from "@/lib/api/client";
+const features = [
+  {
+    title: "策略中心",
+    eyebrow: "Strategy",
+    text: "用内置策略模板快速搭建趋势、突破、ETF 轮动与风险预警逻辑，参数清晰可控。",
+  },
+  {
+    title: "真实历史回测",
+    eyebrow: "Backtest",
+    text: "支持 Mock 与 AKShare 真实历史日线，清楚展示数据源、复权、假设与数据质量。",
+  },
+  {
+    title: "实时策略信号",
+    eyebrow: "Signals",
+    text: "交易时段自动刷新行情与扫描已启用策略，信号持久化并按用户隔离。",
+  },
+  {
+    title: "看盘工作台",
+    eyebrow: "Workbench",
+    text: "K 线、指标与策略信号联动的轻量工作台将在后续阶段开放。",
+  },
+];
 
-export default function DashboardPage() {
-  const router = useRouter();
-  const [user, setUser] = useState<CurrentUser | null>(null);
-  const [overview, setOverview] = useState<MarketOverview | null>(null);
-  const [groups, setGroups] = useState<WatchlistGroup[]>([]);
-  const [strategySummary, setStrategySummary] = useState<StrategySummary | null>(null);
-  const [backtestSummary, setBacktestSummary] = useState<BacktestSummary | null>(null);
-  const [signals, setSignals] = useState<StrategySignal[]>([]);
-  const [monitoringStatus, setMonitoringStatus] = useState<MonitoringStatus | null>(null);
-  const [aiSummary, setAiSummary] = useState<AIResponse | null>(null);
-  const [aiLoading, setAiLoading] = useState(false);
-  const [aiError, setAiError] = useState("");
-  const [loading, setLoading] = useState(true);
+const workflow = ["选标的", "配策略", "跑回测", "启用盯盘"];
 
-  useEffect(() => {
-    getCurrentUser()
-      .then(async (currentUser) => {
-        setUser(currentUser);
-        const [overviewData, groupData, strategyData, backtestData, signalData, statusData] = await Promise.all([
-          getMarketOverview(),
-          getWatchlistGroups(),
-          getStrategySummary(),
-          getBacktestSummary(),
-          getRecentSignals(6),
-          getMonitoringStatus(),
-        ]);
-        setOverview(overviewData);
-        setGroups(groupData);
-        setStrategySummary(strategyData);
-        setBacktestSummary(backtestData);
-        setSignals(signalData);
-        setMonitoringStatus(statusData);
-      })
-      .catch(() => router.replace("/login"))
-      .finally(() => setLoading(false));
-  }, [router]);
-
-  const watchlistItemCount = useMemo(() => groups.reduce((sum, group) => sum + group.items.length, 0), [groups]);
-  const todaySignalCount = useMemo(() => {
-    const today = new Date().toLocaleDateString("zh-CN", { timeZone: "Asia/Shanghai" });
-    return signals.filter((signal) => new Date(signal.triggered_at).toLocaleDateString("zh-CN", { timeZone: "Asia/Shanghai" }) === today).length;
-  }, [signals]);
-  const leadingIndex = overview?.indices[0] ?? null;
-  const latestMarketTime = overview?.updated_at ?? leadingIndex?.updated_at ?? monitoringStatus?.last_quote_refresh_at;
-
-  async function handleLogout() {
-    await logout();
-    router.replace("/login");
-  }
-
-  async function handleAISummary() {
-    setAiError("");
-    setAiLoading(true);
-    try {
-      setAiSummary(await generateDashboardSummary());
-    } catch (err) {
-      setAiError(err instanceof Error ? err.message : "AI 摘要生成失败");
-    } finally {
-      setAiLoading(false);
-    }
-  }
-
-  if (loading) {
-    return <main className="flex min-h-screen items-center justify-center text-sm text-slate-600">Loading...</main>;
-  }
-
-  if (!user) {
-    return null;
-  }
-
+export default function LandingPage() {
   return (
-    <main className="min-h-screen px-4 py-6 sm:px-8">
-      <section className="mx-auto flex max-w-7xl flex-col gap-6">
-        <header className="flex flex-col gap-5 border-b border-slate-200 pb-6 lg:flex-row lg:items-center lg:justify-between">
+    <main className="min-h-screen overflow-hidden bg-background text-foreground">
+      <div className="pointer-events-none fixed inset-0 z-0">
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(148,163,184,0.055)_1px,transparent_1px),linear-gradient(90deg,rgba(148,163,184,0.055)_1px,transparent_1px)] bg-[size:56px_56px]" />
+        <div className="absolute inset-x-0 top-0 h-[520px] bg-[radial-gradient(ellipse_at_top,rgba(32,214,199,0.16),rgba(37,99,235,0.08)_42%,transparent_72%)]" />
+        <div className="absolute inset-x-0 top-[34rem] h-[420px] bg-[linear-gradient(90deg,transparent,rgba(99,102,241,0.12),transparent)] blur-3xl" />
+      </div>
+
+      <header className="sticky top-0 z-30 border-b border-slate-200 bg-[#050812]/82 backdrop-blur-xl">
+        <nav className="mx-auto flex max-w-7xl items-center justify-between gap-5 px-4 py-4 sm:px-8">
+          <Link className="flex items-center gap-3" href="/">
+            <span className="flex h-9 w-9 items-center justify-center rounded-md border border-cyan-300/25 bg-cyan-300/10 text-sm font-semibold text-accent shadow-[0_0_30px_rgba(32,214,199,0.18)]">
+              QB
+            </span>
+            <span className="text-base font-semibold tracking-wide">QuantBeacon</span>
+          </Link>
+          <div className="hidden items-center gap-7 text-sm text-slate-600 lg:flex">
+            <a href="#product">产品</a>
+            <a href="#features">功能</a>
+            <a href="#strategy">策略</a>
+            <a href="#backtest">回测</a>
+            <a href="#workbench">看盘工作台</a>
+            <a href="#about">关于</a>
+          </div>
+          <Link className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-white" href="/login">
+            进入平台
+          </Link>
+        </nav>
+      </header>
+
+      <section id="product" className="relative z-10 mx-auto grid min-h-[calc(100vh-74px)] max-w-7xl items-center gap-12 px-4 py-16 sm:px-8 lg:grid-cols-[0.92fr_1.08fr] lg:py-20">
+        <div>
+          <p className="w-fit rounded-md border border-cyan-300/20 bg-cyan-300/8 px-3 py-1 text-sm font-medium text-accent">
+            AI Quant Trading Workbench
+          </p>
+          <h1 className="mt-7 max-w-4xl text-5xl font-semibold leading-[1.05] tracking-normal text-foreground sm:text-6xl lg:text-7xl">
+            让量化交易变得清晰、简单、可执行
+          </h1>
+          <p className="mt-7 max-w-2xl text-lg leading-8 text-slate-600">
+            自选池、策略中心、真实回测、实时信号与 AI 解释，一站式完成从想法到盯盘的量化工作流。
+          </p>
+          <div className="mt-9 flex flex-col gap-3 sm:flex-row">
+            <Link className="rounded-md bg-accent px-5 py-3 text-center text-sm font-semibold text-white" href="/login">
+              进入平台
+            </Link>
+            <a className="rounded-md border border-slate-300 px-5 py-3 text-center text-sm font-semibold" href="#features">
+              查看功能
+            </a>
+          </div>
+          <div className="mt-10 grid max-w-xl grid-cols-3 gap-3 text-sm">
+            <Metric value="4" label="内置策略模板" />
+            <Metric value="AKShare" label="真实行情接入" />
+            <Metric value="AI" label="策略解释辅助" />
+          </div>
+        </div>
+
+        <HeroMockup />
+      </section>
+
+      <section id="features" className="relative z-10 mx-auto max-w-7xl px-4 py-16 sm:px-8">
+        <div className="max-w-2xl">
+          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-accent">Core Modules</p>
+          <h2 className="mt-4 text-3xl font-semibold sm:text-4xl">从策略设计到实时预警，保持同一套逻辑闭环</h2>
+        </div>
+        <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          {features.map((feature) => (
+            <article className="rounded-lg border border-slate-200 bg-panel p-5" id={feature.title === "看盘工作台" ? "workbench" : undefined} key={feature.title}>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-accent">{feature.eyebrow}</p>
+              <h3 className="mt-4 text-xl font-semibold">{feature.title}</h3>
+              <p className="mt-4 text-sm leading-7 text-slate-600">{feature.text}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section id="strategy" className="relative z-10 mx-auto max-w-7xl px-4 py-16 sm:px-8">
+        <div className="rounded-lg border border-slate-200 bg-panel p-6 sm:p-8">
+          <div className="grid gap-8 lg:grid-cols-[0.8fr_1.2fr] lg:items-center">
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-[0.2em] text-accent">Workflow</p>
+              <h2 className="mt-4 text-3xl font-semibold sm:text-4xl">把复杂流程压缩成四步</h2>
+              <p className="mt-4 text-base leading-8 text-slate-600">
+                QuantBeacon 不试图替你预测未来，而是把标的、策略、数据、回测和信号组织成可以验证、可以复盘、可以执行的流程。
+              </p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-4">
+              {workflow.map((item, index) => (
+                <div className="rounded-md border border-slate-200 bg-[#0b1322]/70 p-4" key={item}>
+                  <p className="text-xs text-slate-500">0{index + 1}</p>
+                  <p className="mt-8 font-semibold">{item}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="backtest" className="relative z-10 mx-auto max-w-7xl px-4 py-16 sm:px-8">
+        <div className="grid gap-8 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
+          <ProductScreen />
           <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.22em] text-accent">QuantBeacon</p>
-            <h1 className="mt-3 text-3xl font-semibold tracking-normal text-foreground sm:text-5xl">量化交易工作台</h1>
-            <p className="mt-3 max-w-2xl text-base leading-7 text-slate-600">
-              把行情、自选、策略信号与回测收敛到一个清晰入口，让每天的量化交易判断更轻、更快。
+            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-accent">Product Preview</p>
+            <h2 className="mt-4 text-3xl font-semibold sm:text-4xl">不是菜单堆叠，而是交易工作流入口</h2>
+            <p className="mt-5 text-base leading-8 text-slate-600">
+              首页聚焦今天市场如何、策略是否触发信号、下一步该进入哪里；内部页面保持统一深色卡片、表单和表格体系。
             </p>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <NavButton label="AI助手" onClick={() => router.push("/ai/strategy-advisor")} />
-            <NavButton label="信号" onClick={() => router.push("/signals")} />
-            <NavButton label="回测" onClick={() => router.push("/backtests")} />
-            <NavButton label="策略" onClick={() => router.push("/strategies")} />
-            <NavButton label="自选" onClick={() => router.push("/watchlist")} />
-            <NavButton label="密码" onClick={() => router.push("/change-password")} />
-            {user.role === "admin" ? <NavButton label="用户管理" onClick={() => router.push("/admin/users")} /> : null}
-            <button className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white" onClick={handleLogout}>
-              退出
-            </button>
-          </div>
-        </header>
+        </div>
+      </section>
 
-        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-          <StatusCard
-            accent="市场"
-            title={leadingIndex?.name ?? "市场概览"}
-            value={leadingIndex ? leadingIndex.last_price.toFixed(2) : "-"}
-            detail={leadingIndex ? `${leadingIndex.symbol} ${formatSignedPct(leadingIndex.pct_change)}` : "等待行情快照"}
-            tone={leadingIndex && leadingIndex.pct_change < 0 ? "down" : "up"}
-          />
-          <StatusCard accent="自选" title="自选池" value={`${watchlistItemCount}`} detail={`${groups.length} 个分组正在跟踪`} />
-          <StatusCard accent="信号" title="今日策略信号" value={`${todaySignalCount}`} detail={`最近显示 ${signals.length} 条`} tone={todaySignalCount > 0 ? "warning" : "neutral"} />
-          <StatusCard
-            accent="策略"
-            title="运行中策略"
-            value={`${strategySummary?.enabled_count ?? 0}/${strategySummary?.total_count ?? 0}`}
-            detail="启用 / 全部策略配置"
-            tone={(strategySummary?.enabled_count ?? 0) > 0 ? "up" : "neutral"}
-          />
-          <StatusCard
-            accent="调度"
-            title={monitoringStatus?.scheduler_running ? "Scheduler 正常" : "Scheduler 待确认"}
-            value={monitoringStatus?.is_market_session ? "盘中" : "非盘中"}
-            detail={monitoringStatus?.provider ? `Provider ${monitoringStatus.provider}` : "等待状态"}
-            tone={monitoringStatus?.scheduler_running ? "up" : "warning"}
-          />
-        </section>
-
-        <section className="grid gap-6 lg:grid-cols-[minmax(0,1.55fr)_minmax(320px,0.75fr)]">
-          <section className="rounded-lg border border-slate-200 bg-panel p-5">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="text-sm font-medium text-accent">Today Opportunities</p>
-                <h2 className="mt-1 text-xl font-semibold">今日机会 / 最新策略信号</h2>
-                <p className="mt-1 text-sm text-slate-600">
-                  先看是否有新触发的关注、突破或风险预警，再决定进入信号页深挖。
-                </p>
-              </div>
-              <button className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-white" onClick={() => router.push("/signals")}>
-                查看全部信号
-              </button>
-            </div>
-
-            {signals.length > 0 ? (
-              <div className="mt-5 divide-y divide-slate-100 rounded-md border border-slate-200">
-                {signals.map((signal) => (
-                  <button
-                    className="grid w-full gap-3 p-4 text-left text-sm hover:bg-slate-50 md:grid-cols-[120px_140px_1fr_auto]"
-                    key={signal.id}
-                    onClick={() => router.push("/signals")}
-                  >
-                    <span>
-                      <span className="block text-base font-semibold">{signal.symbol}</span>
-                      <span className="mt-1 block text-xs text-slate-500">{signal.market}</span>
-                    </span>
-                    <span className={`w-fit rounded-md border px-2.5 py-1 text-xs font-medium ${severityClass(signal.severity)}`}>
-                      {signal.severity}
-                    </span>
-                    <span>
-                      <span className="block font-medium">{signal.title}</span>
-                      <span className="mt-1 block line-clamp-2 text-slate-600">{signal.strategy_config_name ?? signal.template_name ?? signal.signal_type}</span>
-                    </span>
-                    <span className="text-slate-500">{formatTime(signal.triggered_at)}</span>
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <div className="mt-5 rounded-md border border-dashed border-slate-300 p-6 text-sm leading-6 text-slate-600">
-                暂无最新策略信号。交易时段会按调度扫描已启用策略，非交易时段可从策略中心检查配置状态。
-              </div>
-            )}
-          </section>
-
-          <aside className="rounded-lg border border-slate-200 bg-panel p-5">
-            <p className="text-sm font-medium text-accent">Quick Actions</p>
-            <h2 className="mt-1 text-xl font-semibold">下一步操作</h2>
-            <div className="mt-5 grid gap-3">
-              <QuickAction title="添加自选" detail="维护股票、ETF 和指数观察池" onClick={() => router.push("/watchlist")} />
-              <QuickAction title="创建策略" detail="从内置模板生成个人策略配置" onClick={() => router.push("/strategies")} />
-              <QuickAction title="发起回测" detail="用 Mock 或 AKShare 历史日线验证策略" onClick={() => router.push("/backtests")} />
-              <QuickAction title="AI 策略助手" detail="把交易想法整理成可配置方案" onClick={() => router.push("/ai/strategy-advisor")} />
-              <div className="rounded-md border border-dashed border-slate-300 p-4">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className="font-medium">看盘工作台</p>
-                    <p className="mt-1 text-sm text-slate-600">K线、指标与信号联动入口，Phase 9C 规划中。</p>
-                  </div>
-                  <span className="rounded-md border border-slate-200 px-2 py-1 text-xs text-slate-500">Soon</span>
-                </div>
-              </div>
-            </div>
-          </aside>
-        </section>
-
-        <section className="grid gap-6 lg:grid-cols-2">
-          <section className="rounded-lg border border-slate-200 bg-panel p-5">
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <h2 className="text-lg font-semibold">运行中策略</h2>
-                <p className="mt-1 text-sm text-slate-600">
-                  已创建 {strategySummary?.total_count ?? 0} 个，已启用 {strategySummary?.enabled_count ?? 0} 个。
-                </p>
-              </div>
-              <button className="rounded-md border border-slate-300 px-4 py-2 text-sm" onClick={() => router.push("/strategies")}>
-                管理
-              </button>
-            </div>
-            {strategySummary && strategySummary.recent_configs.length > 0 ? (
-              <div className="mt-5 divide-y divide-slate-100 rounded-md border border-slate-200">
-                {strategySummary.recent_configs.slice(0, 4).map((config) => (
-                  <div className="grid gap-2 p-3 text-sm md:grid-cols-[1fr_auto_auto]" key={config.id}>
-                    <span className="font-medium">{config.name}</span>
-                    <span className="text-slate-500">{formatTime(config.updated_at)}</span>
-                    <span className={config.is_enabled ? "font-medium text-emerald-700" : "font-medium text-slate-500"}>
-                      {config.is_enabled ? "已启用" : "已停用"}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <EmptyState text="还没有策略配置。进入策略中心从内置模板创建个人策略。" />
-            )}
-          </section>
-
-          <section className="rounded-lg border border-slate-200 bg-panel p-5">
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <h2 className="text-lg font-semibold">最近回测</h2>
-                <p className="mt-1 text-sm text-slate-600">共 {backtestSummary?.total_count ?? 0} 条回测记录，区分 Mock 与真实历史数据。</p>
-              </div>
-              <button className="rounded-md border border-slate-300 px-4 py-2 text-sm" onClick={() => router.push("/backtests")}>
-                查看
-              </button>
-            </div>
-            {backtestSummary && backtestSummary.recent_runs.length > 0 ? (
-              <div className="mt-5 divide-y divide-slate-100 rounded-md border border-slate-200">
-                {backtestSummary.recent_runs.slice(0, 4).map((run) => (
-                  <button
-                    className="grid w-full gap-2 p-3 text-left text-sm hover:bg-slate-50 md:grid-cols-[1fr_auto_auto_auto]"
-                    key={run.id}
-                    onClick={() => router.push(`/backtests/${run.id}`)}
-                  >
-                    <span className="font-medium">{run.strategy_config_name ?? run.strategy_template_name ?? run.id}</span>
-                    <span className={run.data_source === "akshare_daily_bars" ? "text-blue-700" : "text-slate-500"}>
-                      {run.data_source === "akshare_daily_bars" ? "AKShare真实历史" : "Mock"}
-                    </span>
-                    <span>{formatPct(run.metrics_json.total_return_pct)}</span>
-                    <span className="text-slate-500">{formatTime(run.created_at)}</span>
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <EmptyState text="还没有回测记录。进入回测中心选择 ETF 动量轮动策略发起回测。" />
-            )}
-          </section>
-        </section>
-
-        <section className="grid gap-6 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
-          <section className="rounded-lg border border-slate-200 bg-panel p-5">
-            <h2 className="text-lg font-semibold">市场与调度</h2>
-            <div className="mt-4 grid gap-3 text-sm">
-              <InfoRow label="行情更新时间" value={latestMarketTime ? new Date(latestMarketTime).toLocaleString() : "-"} />
-              <InfoRow label="策略扫描" value={monitoringStatus?.last_strategy_scan_at ? new Date(monitoringStatus.last_strategy_scan_at).toLocaleString() : "-"} />
-              <InfoRow label="交易时段" value={monitoringStatus?.is_market_session ? "是" : "否"} />
-              {monitoringStatus?.last_error ? <p className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">{monitoringStatus.last_error}</p> : null}
-            </div>
-          </section>
-
-          <section className="rounded-lg border border-slate-200 bg-panel p-5">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <h2 className="text-lg font-semibold">AI 今日策略摘要</h2>
-                <p className="mt-1 text-sm text-slate-600">基于当前用户策略、信号、回测和自选池生成，不代表投资承诺。</p>
-              </div>
-              <button className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-white disabled:opacity-60" disabled={aiLoading} onClick={handleAISummary}>
-                {aiLoading ? "生成中..." : "生成摘要"}
-              </button>
-            </div>
-            {aiError ? <p className="mt-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">{aiError}</p> : null}
-            {aiSummary ? <AIResultBlock result={aiSummary} /> : <p className="mt-4 text-sm leading-6 text-slate-600">需要时手动生成摘要，避免首页被过多说明性内容占满。</p>}
-          </section>
-        </section>
+      <section id="about" className="relative z-10 mx-auto max-w-7xl px-4 pb-20 pt-10 sm:px-8">
+        <div className="rounded-lg border border-cyan-300/20 bg-[#0b1322]/78 p-8 text-center shadow-[0_24px_90px_rgba(20,184,166,0.12)]">
+          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-accent">Start Now</p>
+          <h2 className="mt-4 text-3xl font-semibold sm:text-5xl">开始使用 QuantBeacon</h2>
+          <p className="mx-auto mt-5 max-w-2xl text-base leading-8 text-slate-600">
+            用更清晰的系统管理自选、策略、回测和信号，把量化交易从零散操作变成稳定工作台。
+          </p>
+          <Link className="mt-8 inline-flex rounded-md bg-accent px-6 py-3 text-sm font-semibold text-white" href="/login">
+            进入工作台
+          </Link>
+        </div>
       </section>
     </main>
   );
 }
 
-function NavButton({ label, onClick }: { label: string; onClick: () => void }) {
+function Metric({ value, label }: { value: string; label: string }) {
   return (
-    <button className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium" onClick={onClick}>
-      {label}
-    </button>
-  );
-}
-
-function StatusCard({
-  accent,
-  title,
-  value,
-  detail,
-  tone = "neutral",
-}: {
-  accent: string;
-  title: string;
-  value: string;
-  detail: string;
-  tone?: "neutral" | "up" | "down" | "warning";
-}) {
-  const toneClass = {
-    neutral: "text-slate-600",
-    up: "text-red-600",
-    down: "text-emerald-700",
-    warning: "text-amber-700",
-  }[tone];
-  return (
-    <article className="rounded-lg border border-slate-200 bg-panel p-4">
-      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-accent">{accent}</p>
-      <h2 className="mt-2 text-sm font-medium text-slate-600">{title}</h2>
-      <p className={`mt-3 text-2xl font-semibold ${toneClass}`}>{value}</p>
-      <p className="mt-2 text-xs text-slate-500">{detail}</p>
-    </article>
-  );
-}
-
-function QuickAction({ title, detail, onClick }: { title: string; detail: string; onClick: () => void }) {
-  return (
-    <button className="rounded-md border border-slate-200 p-4 text-left hover:bg-slate-50" onClick={onClick}>
-      <span className="block font-medium">{title}</span>
-      <span className="mt-1 block text-sm leading-6 text-slate-600">{detail}</span>
-    </button>
-  );
-}
-
-function InfoRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between gap-3 rounded-md border border-slate-200 px-3 py-2">
-      <span className="text-slate-500">{label}</span>
-      <span className="text-right font-medium">{value}</span>
+    <div className="rounded-md border border-slate-200 bg-[#0b1322]/70 p-3">
+      <p className="text-lg font-semibold text-accent">{value}</p>
+      <p className="mt-1 text-xs text-slate-500">{label}</p>
     </div>
   );
 }
 
-function EmptyState({ text }: { text: string }) {
-  return <div className="mt-5 rounded-md border border-dashed border-slate-300 p-5 text-sm text-slate-600">{text}</div>;
-}
-
-function severityClass(severity: string) {
-  const lower = severity.toLowerCase();
-  if (lower.includes("risk") || lower.includes("high")) {
-    return "border-red-200 bg-red-50 text-red-700";
-  }
-  if (lower.includes("strong") || lower.includes("watch")) {
-    return "border-amber-200 bg-amber-50 text-amber-700";
-  }
-  return "border-slate-200 text-slate-600";
-}
-
-function formatPct(value: unknown) {
-  return typeof value === "number" ? `${value.toFixed(2)}%` : "-";
-}
-
-function formatSignedPct(value: number) {
-  return `${value >= 0 ? "+" : ""}${value.toFixed(2)}%`;
-}
-
-function formatTime(value: string) {
-  return new Date(value).toLocaleString("zh-CN", {
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
-function AIResultBlock({ result }: { result: AIResponse }) {
-  if (!result.parsed_json) {
-    return <p className="mt-4 whitespace-pre-wrap text-sm leading-6 text-slate-700">{result.content}</p>;
-  }
+function HeroMockup() {
   return (
-    <div className="mt-4 grid gap-3 md:grid-cols-2">
-      {Object.entries(result.parsed_json).map(([key, value]) => (
-        <div className="rounded-md border border-slate-200 p-3 text-sm" key={key}>
-          <p className="font-medium text-slate-700">{key}</p>
-          <p className="mt-2 whitespace-pre-wrap leading-6 text-slate-600">{formatAIValue(value)}</p>
+    <div className="relative min-h-[520px]">
+      <div className="absolute inset-x-6 top-10 rounded-lg border border-cyan-300/20 bg-[#0d1628]/92 p-5 shadow-[0_24px_90px_rgba(0,0,0,0.45)] backdrop-blur">
+        <div className="flex items-center justify-between border-b border-slate-200 pb-4">
+          <div>
+            <p className="text-xs uppercase tracking-[0.18em] text-accent">Live Signals</p>
+            <h3 className="mt-1 text-lg font-semibold">今日机会</h3>
+          </div>
+          <span className="rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-xs text-amber-700">3 new</span>
         </div>
-      ))}
+        <div className="mt-4 space-y-3">
+          <SignalLine symbol="510300" title="ETF 动量排名提升" pct="+1.82%" />
+          <SignalLine symbol="159915" title="趋势跟随信号增强" pct="+2.14%" />
+          <SignalLine symbol="512100" title="风险波动升高" pct="-0.76%" down />
+        </div>
+      </div>
+
+      <div className="absolute bottom-10 left-0 w-[78%] rounded-lg border border-slate-200 bg-[#101827]/95 p-5 shadow-[0_20px_70px_rgba(0,0,0,0.36)]">
+        <div className="flex items-center justify-between">
+          <p className="font-semibold">真实历史回测</p>
+          <span className="text-xs text-blue-700">AKShare</span>
+        </div>
+        <div className="mt-5 h-36 rounded-md border border-slate-200 bg-[#080d18] p-4">
+          <svg className="h-full w-full" preserveAspectRatio="none" viewBox="0 0 420 140">
+            <path d="M0 104 C45 96 66 112 104 88 C142 64 166 72 202 58 C246 40 274 62 312 36 C348 12 378 22 420 8" fill="none" stroke="#20d6c7" strokeLinecap="round" strokeWidth="3" />
+            <path d="M0 104 C45 96 66 112 104 88 C142 64 166 72 202 58 C246 40 274 62 312 36 C348 12 378 22 420 8 L420 140 L0 140Z" fill="rgba(32,214,199,0.12)" />
+          </svg>
+        </div>
+      </div>
+
+      <div className="absolute bottom-0 right-2 w-[48%] rounded-lg border border-indigo-300/20 bg-[#0b1322]/95 p-4 shadow-[0_20px_70px_rgba(37,99,235,0.18)]">
+        <p className="text-xs uppercase tracking-[0.18em] text-blue-700">Scheduler</p>
+        <p className="mt-2 text-2xl font-semibold text-emerald-700">Running</p>
+        <p className="mt-2 text-xs text-slate-500">AKShare provider / Asia Shanghai</p>
+      </div>
     </div>
   );
 }
 
-function formatAIValue(value: unknown) {
-  if (Array.isArray(value)) {
-    return value.map((item) => `- ${String(item)}`).join("\n");
-  }
-  if (value && typeof value === "object") {
-    return JSON.stringify(value, null, 2);
-  }
-  return String(value ?? "");
+function SignalLine({ symbol, title, pct, down = false }: { symbol: string; title: string; pct: string; down?: boolean }) {
+  return (
+    <div className="grid grid-cols-[80px_1fr_auto] items-center gap-3 rounded-md border border-slate-200 bg-[#0b1322]/72 p-3 text-sm">
+      <span className="font-semibold">{symbol}</span>
+      <span className="text-slate-600">{title}</span>
+      <span className={down ? "text-emerald-700" : "text-red-600"}>{pct}</span>
+    </div>
+  );
+}
+
+function ProductScreen() {
+  return (
+    <div className="rounded-lg border border-slate-200 bg-[#0b1322]/88 p-4 shadow-[0_28px_100px_rgba(0,0,0,0.38)]">
+      <div className="flex items-center gap-2 border-b border-slate-200 pb-3">
+        <span className="h-2.5 w-2.5 rounded-full bg-red-600" />
+        <span className="h-2.5 w-2.5 rounded-full bg-amber-700" />
+        <span className="h-2.5 w-2.5 rounded-full bg-emerald-700" />
+        <span className="ml-3 text-xs text-slate-500">quantbeacon.cc/dashboard</span>
+      </div>
+      <div className="mt-4 grid gap-3 md:grid-cols-5">
+        {["市场", "自选", "信号", "策略", "调度"].map((item, index) => (
+          <div className="rounded-md border border-slate-200 bg-panel p-3" key={item}>
+            <p className="text-xs text-slate-500">{item}</p>
+            <p className="mt-5 text-lg font-semibold text-accent">{index === 2 ? "6" : index === 4 ? "盘中" : "OK"}</p>
+          </div>
+        ))}
+      </div>
+      <div className="mt-4 grid gap-3 md:grid-cols-[1.35fr_0.65fr]">
+        <div className="rounded-md border border-slate-200 bg-panel p-4">
+          <p className="font-semibold">今日机会 / 最新策略信号</p>
+          <div className="mt-4 space-y-2">
+            <SignalLine symbol="510300" title="ETF 动量轮动建议关注" pct="+1.82%" />
+            <SignalLine symbol="159915" title="放量突破观察" pct="+2.14%" />
+          </div>
+        </div>
+        <div className="rounded-md border border-slate-200 bg-panel p-4">
+          <p className="font-semibold">快速操作</p>
+          <div className="mt-4 space-y-2 text-sm text-slate-600">
+            <p>添加自选</p>
+            <p>创建策略</p>
+            <p>发起回测</p>
+            <p>AI 策略助手</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }

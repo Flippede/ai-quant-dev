@@ -46,7 +46,7 @@ export default function ChangePasswordPage() {
       <section className="w-full max-w-md rounded-lg border border-slate-200 bg-panel p-6">
         <div className="flex items-center justify-between gap-4">
           <h1 className="text-2xl font-semibold">修改密码</h1>
-          <button className="rounded-md border border-slate-300 px-3 py-2 text-sm" onClick={() => router.push("/")}>
+          <button className="rounded-md border border-slate-300 px-3 py-2 text-sm" onClick={() => router.push("/dashboard")}>
             返回
           </button>
         </div>

@@ -57,7 +57,7 @@ export default function StrategyAdvisorPage() {
             <p className="text-sm font-medium text-accent">AI Strategy Advisor</p>
             <h1 className="mt-2 text-3xl font-semibold">AI 策略助手</h1>
           </div>
-          <button className="rounded-md border border-slate-300 px-4 py-2 text-sm" onClick={() => router.push("/")}>
+          <button className="rounded-md border border-slate-300 px-4 py-2 text-sm" onClick={() => router.push("/dashboard")}>
             返回首页
           </button>
         </header>

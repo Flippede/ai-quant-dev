@@ -23,7 +23,7 @@ export default function AdminUsersPage() {
     getCurrentUser()
       .then((user) => {
         if (user.role !== "admin") {
-          router.replace("/");
+          router.replace("/dashboard");
           return;
         }
         setCurrentUser(user);
@@ -88,7 +88,7 @@ export default function AdminUsersPage() {
             <h1 className="mt-2 text-3xl font-semibold">用户管理</h1>
           </div>
           <div className="flex gap-3">
-            <button className="rounded-md border border-slate-300 px-4 py-2 text-sm" onClick={() => router.push("/")}>
+            <button className="rounded-md border border-slate-300 px-4 py-2 text-sm" onClick={() => router.push("/dashboard")}>
               返回后台
             </button>
             <button className="rounded-md bg-slate-900 px-4 py-2 text-sm text-white" onClick={handleLogout}>

@@ -13,7 +13,7 @@ export default function LoginPage() {
 
   useEffect(() => {
     getCurrentUser()
-      .then(() => router.replace("/"))
+      .then(() => router.replace("/dashboard"))
       .catch(() => undefined);
   }, [router]);
 
@@ -26,7 +26,7 @@ export default function LoginPage() {
         method: "POST",
         body: JSON.stringify({ username, password }),
       });
-      router.replace("/");
+      router.replace("/dashboard");
     } catch (err) {
       setError(err instanceof Error ? err.message : "登录失败");
     } finally {
