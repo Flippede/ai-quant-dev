@@ -26,6 +26,18 @@ type SelectedInstrument = {
   asset_type?: string;
 };
 
+type RangePreset = "3d" | "1w" | "1m" | "3m" | "6m" | "1y" | "all";
+
+const rangePresets: Array<{ key: RangePreset; label: string }> = [
+  { key: "3d", label: "近3日" },
+  { key: "1w", label: "近1周" },
+  { key: "1m", label: "近1月" },
+  { key: "3m", label: "近3月" },
+  { key: "6m", label: "近6月" },
+  { key: "1y", label: "近1年" },
+  { key: "all", label: "全部" },
+];
+
 const fallbackInstrument: SelectedInstrument = {
   symbol: "510300",
   market: "CN",
@@ -38,6 +50,7 @@ export default function MarketWorkspacePage() {
   const [groups, setGroups] = useState<WatchlistGroup[]>([]);
   const [selected, setSelected] = useState<SelectedInstrument>(fallbackInstrument);
   const [adjustMode, setAdjustMode] = useState<"none" | "qfq" | "hfq">("qfq");
+  const [rangePreset, setRangePreset] = useState<RangePreset>("1y");
   const [bars, setBars] = useState<DailyBar[]>([]);
   const [quote, setQuote] = useState<Quote | null>(null);
   const [signals, setSignals] = useState<StrategySignal[]>([]);
@@ -70,18 +83,19 @@ export default function MarketWorkspacePage() {
       .finally(() => setLoading(false));
   }, [router]);
 
-  const loadMarketData = useCallback(async (instrument: SelectedInstrument, adjust: typeof adjustMode) => {
+  const loadMarketData = useCallback(async (instrument: SelectedInstrument, adjust: typeof adjustMode, range: RangePreset) => {
     setChartLoading(true);
     setError("");
     setMessage("");
     try {
+      const dateRange = dateRangeForPreset(range);
       const [barData, quoteData, signalData] = await Promise.all([
         getMarketBars({
           symbol: instrument.symbol,
           market: instrument.market,
           adjust,
-          start_date: dateMonthsAgo(18),
-          end_date: todayString(),
+          start_date: dateRange.startDate,
+          end_date: dateRange.endDate,
         }),
         getMarketQuotes([instrument.symbol]),
         getSignals({ symbol: instrument.symbol, limit: 8 }),
@@ -105,8 +119,8 @@ export default function MarketWorkspacePage() {
     }
     // The chart is synchronized with the selected instrument and adjustment mode.
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    loadMarketData(selected, adjustMode);
-  }, [selected, adjustMode, loadMarketData]);
+    loadMarketData(selected, adjustMode, rangePreset);
+  }, [selected, adjustMode, rangePreset, loadMarketData]);
 
   async function handleSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -147,17 +161,20 @@ export default function MarketWorkspacePage() {
             <h1 className="mt-2 text-3xl font-semibold sm:text-4xl">看盘工作台</h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">从行情图表进入信号、回测和策略配置，让日常看盘形成闭环。</p>
           </div>
-          <div className="flex flex-wrap gap-2 text-sm">
-            {(["1d", "60min", "30min", "15min"] as const).map((period) => (
-              <button
-                className={period === "1d" ? "rounded-md bg-accent px-3 py-2 font-medium text-white" : "rounded-md border border-slate-300 px-3 py-2 text-slate-500 opacity-60"}
-                disabled={period !== "1d"}
-                key={period}
-                type="button"
-              >
-                {period === "1d" ? "日线" : `${period} 即将支持`}
-              </button>
-            ))}
+          <div className="flex flex-col gap-2 lg:items-end">
+            <div className="flex flex-wrap gap-2 text-sm">
+              {(["1d", "60min", "30min", "15min"] as const).map((period) => (
+                <button
+                  className={period === "1d" ? "rounded-md bg-accent px-3 py-2 font-medium text-white" : "rounded-md border border-slate-300 px-3 py-2 text-slate-500 opacity-60"}
+                  disabled={period !== "1d"}
+                  key={period}
+                  type="button"
+                >
+                  {period === "1d" ? "日线" : `${period} 即将支持`}
+                </button>
+              ))}
+            </div>
+            <p className="text-xs text-slate-500">当前仅展示日线；盘中分时和分钟K线将在后续接入。</p>
           </div>
         </header>
 
@@ -220,12 +237,26 @@ export default function MarketWorkspacePage() {
                 <p className="text-sm text-slate-500">{selected.market} / {selected.asset_type ?? "instrument"}</p>
                 <h2 className="mt-1 text-2xl font-semibold">{quote?.name ?? selected.name} <span className="text-slate-500">{selected.symbol}</span></h2>
               </div>
-              <div className="flex rounded-md border border-slate-200 bg-[#0b1322]/70 p-1 text-sm">
-                {(["none", "qfq", "hfq"] as const).map((mode) => (
-                  <button className={adjustMode === mode ? "rounded-md bg-cyan-300/10 px-3 py-2 text-accent" : "rounded-md px-3 py-2 text-slate-600"} key={mode} onClick={() => setAdjustMode(mode)}>
-                    {mode === "none" ? "不复权" : mode === "qfq" ? "前复权" : "后复权"}
-                  </button>
-                ))}
+              <div className="flex flex-col gap-2 lg:items-end">
+                <div className="flex max-w-full gap-1 overflow-x-auto rounded-md border border-slate-200 bg-[#0b1322]/70 p-1 text-sm">
+                  {rangePresets.map((preset) => (
+                    <button
+                      className={rangePreset === preset.key ? "whitespace-nowrap rounded-md bg-cyan-300/10 px-3 py-2 text-accent" : "whitespace-nowrap rounded-md px-3 py-2 text-slate-600"}
+                      key={preset.key}
+                      onClick={() => setRangePreset(preset.key)}
+                      type="button"
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
+                <div className="flex rounded-md border border-slate-200 bg-[#0b1322]/70 p-1 text-sm">
+                  {(["none", "qfq", "hfq"] as const).map((mode) => (
+                    <button className={adjustMode === mode ? "rounded-md bg-cyan-300/10 px-3 py-2 text-accent" : "rounded-md px-3 py-2 text-slate-600"} key={mode} onClick={() => setAdjustMode(mode)} type="button">
+                      {mode === "none" ? "不复权" : mode === "qfq" ? "前复权" : "后复权"}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
             <div className="relative mt-4 h-[560px] overflow-hidden rounded-md border border-slate-200 bg-[#080d18]">
@@ -419,6 +450,41 @@ function instrumentToSelected(instrument: Instrument): SelectedInstrument {
 
 function todayString() {
   return new Date().toISOString().slice(0, 10);
+}
+
+function dateRangeForPreset(preset: RangePreset) {
+  return {
+    startDate: startDateForPreset(preset),
+    endDate: todayString(),
+  };
+}
+
+function startDateForPreset(preset: RangePreset) {
+  if (preset === "all") {
+    return "2005-01-01";
+  }
+  if (preset === "3d") {
+    return dateDaysAgo(7);
+  }
+  if (preset === "1w") {
+    return dateDaysAgo(14);
+  }
+  if (preset === "1m") {
+    return dateMonthsAgo(1);
+  }
+  if (preset === "3m") {
+    return dateMonthsAgo(3);
+  }
+  if (preset === "6m") {
+    return dateMonthsAgo(6);
+  }
+  return dateMonthsAgo(12);
+}
+
+function dateDaysAgo(days: number) {
+  const date = new Date();
+  date.setDate(date.getDate() - days);
+  return date.toISOString().slice(0, 10);
 }
 
 function dateMonthsAgo(months: number) {
