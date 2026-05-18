@@ -52,6 +52,11 @@ export type MarketBarsResponse = {
   period: string;
   adjustment_mode: "none" | "qfq" | "hfq";
   bars: DailyBar[];
+  cache_hit?: boolean;
+  stale?: boolean;
+  provider?: string;
+  fetched_at?: string | null;
+  warning?: string | null;
 };
 
 export type IntradayBar = {
@@ -74,6 +79,11 @@ export type IntradayBarsResponse = {
   adjustment_mode: "none" | "qfq" | "hfq";
   bars: IntradayBar[];
   source_note?: string | null;
+  cache_hit?: boolean;
+  stale?: boolean;
+  provider?: string;
+  fetched_at?: string | null;
+  warning?: string | null;
 };
 
 export type Instrument = {

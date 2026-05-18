@@ -20,6 +20,15 @@ import {
 } from "@/lib/api/client";
 import { ColorType, IChartApi, Time, createChart } from "lightweight-charts";
 
+type MarketResponseMeta = {
+  cache_hit?: boolean;
+  stale?: boolean;
+  provider?: string;
+  fetched_at?: string | null;
+  warning?: string | null;
+  source_note?: string | null;
+};
+
 type SelectedInstrument = {
   symbol: string;
   market: string;
@@ -55,6 +64,8 @@ const fallbackInstrument: SelectedInstrument = {
   asset_type: "etf",
 };
 
+const barsSessionCache = new Map<string, { bars: DailyBar[] | IntradayBar[]; meta: MarketResponseMeta }>();
+
 export default function MarketWorkspacePage() {
   const router = useRouter();
   const [groups, setGroups] = useState<WatchlistGroup[]>([]);
@@ -65,6 +76,7 @@ export default function MarketWorkspacePage() {
   const [bars, setBars] = useState<DailyBar[]>([]);
   const [intradayBars, setIntradayBars] = useState<IntradayBar[]>([]);
   const [sourceNote, setSourceNote] = useState("");
+  const [marketMeta, setMarketMeta] = useState<MarketResponseMeta | null>(null);
   const [quote, setQuote] = useState<Quote | null>(null);
   const [signals, setSignals] = useState<StrategySignal[]>([]);
   const [keyword, setKeyword] = useState("");
@@ -101,7 +113,20 @@ export default function MarketWorkspacePage() {
     setError("");
     setMessage("");
     setSourceNote("");
+    setMarketMeta(null);
     try {
+      const requestKey = marketRequestKey(instrument, adjust, range, mode);
+      const cached = barsSessionCache.get(requestKey);
+      if (cached) {
+        if (mode === "daily") {
+          setBars(cached.bars as DailyBar[]);
+          setIntradayBars([]);
+        } else {
+          setBars([]);
+          setIntradayBars(cached.bars as IntradayBar[]);
+        }
+        setMarketMeta({ ...cached.meta, cache_hit: true, warning: cached.meta.warning ?? "正在后台刷新行情数据。" });
+      }
       const marketDataRequest =
         mode === "daily"
           ? getMarketBars({
@@ -133,11 +158,34 @@ export default function MarketWorkspacePage() {
         setIntradayBars(marketData.bars as IntradayBar[]);
         setSourceNote("source_note" in marketData && marketData.source_note ? marketData.source_note : "");
       }
+      const meta: MarketResponseMeta = {
+        cache_hit: marketData.cache_hit,
+        stale: marketData.stale,
+        provider: marketData.provider,
+        fetched_at: marketData.fetched_at,
+        warning: marketData.warning,
+        source_note: "source_note" in marketData ? marketData.source_note : null,
+      };
+      setMarketMeta(meta);
+      barsSessionCache.set(requestKey, { bars: marketData.bars, meta });
       setQuote(quoteData[0] ?? null);
       setSignals(signalData);
     } catch (err) {
-      setBars([]);
-      setIntradayBars([]);
+      const requestKey = marketRequestKey(instrument, adjust, range, mode);
+      const cached = barsSessionCache.get(requestKey);
+      if (cached) {
+        if (mode === "daily") {
+          setBars(cached.bars as DailyBar[]);
+          setIntradayBars([]);
+        } else {
+          setBars([]);
+          setIntradayBars(cached.bars as IntradayBar[]);
+        }
+        setMarketMeta({ ...cached.meta, cache_hit: true, stale: true, warning: "行情源暂时波动，已保留最近一次页面数据。" });
+      } else {
+        setBars([]);
+        setIntradayBars([]);
+      }
       setQuote(null);
       setSignals([]);
       setError(err instanceof Error ? err.message : "行情数据加载失败");
@@ -206,7 +254,14 @@ export default function MarketWorkspacePage() {
           </div>
         </header>
 
-        {error ? <p className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</p> : null}
+        {error ? (
+          <div className="flex flex-col gap-3 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700 sm:flex-row sm:items-center sm:justify-between">
+            <span>{error}</span>
+            <button className="w-fit rounded-md border border-red-200 px-3 py-1.5 text-sm font-medium" onClick={() => loadMarketData(selected, adjustMode, rangePreset, chartMode)} type="button">
+              重试
+            </button>
+          </div>
+        ) : null}
         {message ? <p className="rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">{message}</p> : null}
 
         <div className="grid gap-5 xl:grid-cols-[280px_minmax(0,1fr)_320px]">
@@ -316,6 +371,7 @@ export default function MarketWorkspacePage() {
                 </div>
               ) : null}
             </div>
+            <MarketDataNotice chartLoading={chartLoading} meta={marketMeta} />
             {sourceNote && chartMode !== "daily" ? <p className="mt-2 text-xs text-slate-500">{sourceNote}</p> : null}
           </section>
 
@@ -602,6 +658,24 @@ function MarketListSkeleton() {
   );
 }
 
+function MarketDataNotice({ meta, chartLoading }: { meta: MarketResponseMeta | null; chartLoading: boolean }) {
+  if (!meta && !chartLoading) {
+    return null;
+  }
+  const message = meta?.warning ?? (chartLoading ? "数据刷新中" : "");
+  if (!message && !meta?.cache_hit) {
+    return null;
+  }
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+      {message ? <span className={meta?.stale ? "rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-amber-700" : "rounded-md border border-slate-200 px-2 py-1"}>{message}</span> : null}
+      {meta?.cache_hit ? <span className="rounded-md border border-cyan-300/15 bg-cyan-300/5 px-2 py-1 text-accent">缓存命中</span> : null}
+      {meta?.provider ? <span>Provider {meta.provider}</span> : null}
+      {meta?.fetched_at ? <span>数据时间 {new Date(meta.fetched_at).toLocaleTimeString()}</span> : null}
+    </div>
+  );
+}
+
 function QuotePanel({ quote, fallback, loading }: { quote: Quote | null; fallback: SelectedInstrument; loading: boolean }) {
   if (loading) {
     return (
@@ -662,6 +736,16 @@ function dateRangeForPreset(preset: RangePreset) {
     startDate: startDateForPreset(preset),
     endDate: todayString(),
   };
+}
+
+function marketRequestKey(instrument: SelectedInstrument, adjust: "none" | "qfq" | "hfq", range: RangePreset, mode: ChartMode) {
+  if (mode === "daily") {
+    const dateRange = dateRangeForPreset(range);
+    return ["daily", instrument.market, instrument.symbol, adjust, dateRange.startDate, dateRange.endDate].join(":");
+  }
+  const dateRange = intradayDateRangeForMode(mode);
+  const instrumentType = instrument.asset_type === "stock" || instrument.asset_type === "etf" || instrument.asset_type === "index" ? instrument.asset_type : "auto";
+  return ["intraday", instrument.market, instrument.symbol, instrumentType, mode === "time" ? "1" : mode, mode === "time" ? "none" : adjust, dateRange.start, dateRange.end].join(":");
 }
 
 function intradayDateRangeForMode(mode: ChartMode) {

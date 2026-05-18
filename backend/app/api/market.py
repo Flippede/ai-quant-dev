@@ -18,6 +18,7 @@ from app.schemas.market import (
     QuotePublic,
 )
 from app.services.market_service import get_instrument, get_market_overview, get_quotes, quote_for_instrument, search_instruments
+from app.services.market_bars_cache import get_cached_daily_bars, get_cached_intraday_bars
 from app.market_data.provider import get_market_data_provider
 
 router = APIRouter(tags=["market"])
@@ -82,7 +83,18 @@ def market_bars(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="start_date must be before end_date")
 
     provider = get_market_data_provider()
-    bars = provider.get_daily_bars(symbol, market, start_date, end_date, adjust)
+    try:
+        result = get_cached_daily_bars(
+            symbol=symbol,
+            market=market,
+            period=period,
+            adjust=adjust,
+            start_date=start_date,
+            end_date=end_date,
+            fetcher=lambda: provider.get_daily_bars(symbol, market, start_date, end_date, adjust),
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Daily market data provider unavailable") from exc
     return MarketBarsResponse(
         symbol=symbol,
         market=market,
@@ -100,8 +112,13 @@ def market_bars(
                 volume=float(bar.volume),
                 amount=float(bar.amount),
             )
-            for bar in bars
+            for bar in result.bars
         ],
+        cache_hit=result.cache_hit,
+        stale=result.stale,
+        provider=result.provider,
+        fetched_at=result.fetched_at,
+        warning=result.warning,
     )
 
 
@@ -121,7 +138,16 @@ def market_intraday_bars(
 
     provider = get_market_data_provider()
     try:
-        bars = provider.get_intraday_bars(symbol, market, instrument_type, period, start_datetime, end_datetime, adjust)
+        result = get_cached_intraday_bars(
+            symbol=symbol,
+            market=market,
+            instrument_type=instrument_type,
+            period=period,
+            adjust=adjust,
+            start_datetime=start_datetime,
+            end_datetime=end_datetime,
+            fetcher=lambda: provider.get_intraday_bars(symbol, market, instrument_type, period, start_datetime, end_datetime, adjust),
+        )
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     except Exception as exc:
@@ -145,7 +171,12 @@ def market_intraday_bars(
                 volume=float(bar.volume),
                 amount=float(bar.amount),
             )
-            for bar in bars
+            for bar in result.bars
         ],
-        source_note="分钟行情优先使用 AKShare Eastmoney 接口；当前环境 Eastmoney 不稳定时降级到 AKShare stock_zh_a_minute。",
+        source_note="分钟行情优先使用 AKShare stock_zh_a_minute；Eastmoney 分钟源保留为备用。",
+        cache_hit=result.cache_hit,
+        stale=result.stale,
+        provider=result.provider,
+        fetched_at=result.fetched_at,
+        warning=result.warning,
     )

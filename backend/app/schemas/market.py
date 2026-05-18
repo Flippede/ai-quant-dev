@@ -65,6 +65,11 @@ class MarketBarsResponse(BaseModel):
     period: str
     adjustment_mode: str
     bars: list[DailyBarPublic]
+    cache_hit: bool = False
+    stale: bool = False
+    provider: str = "mock"
+    fetched_at: datetime | None = None
+    warning: str | None = None
 
 
 class IntradayBarPublic(BaseModel):
@@ -87,3 +92,8 @@ class IntradayBarsResponse(BaseModel):
     adjustment_mode: str
     bars: list[IntradayBarPublic]
     source_note: str | None = None
+    cache_hit: bool = False
+    stale: bool = False
+    provider: str = "mock"
+    fetched_at: datetime | None = None
+    warning: str | None = None
