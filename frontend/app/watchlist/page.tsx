@@ -15,7 +15,6 @@ import {
   updateWatchlistGroup,
   updateWatchlistItem,
 } from "@/lib/api/client";
-import { AppHeader } from "@/components/app-header";
 
 export default function WatchlistPage() {
   const router = useRouter();
@@ -26,6 +25,7 @@ export default function WatchlistPage() {
   const [results, setResults] = useState<Instrument[]>([]);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [groupsLoading, setGroupsLoading] = useState(true);
 
   const selectedGroup = useMemo(
     () => groups.find((group) => group.id === selectedGroupId) ?? groups[0],
@@ -33,17 +33,20 @@ export default function WatchlistPage() {
   );
 
   async function loadGroups() {
+    setGroupsLoading(true);
     const data = await getWatchlistGroups();
     setGroups(data);
     if (!selectedGroupId && data[0]) {
       setSelectedGroupId(data[0].id);
     }
+    setGroupsLoading(false);
   }
 
   useEffect(() => {
     getCurrentUser()
       .then(loadGroups)
-      .catch(() => router.replace("/login"));
+      .catch(() => router.replace("/login"))
+      .finally(() => setGroupsLoading(false));
   }, [router]);
 
   async function handleCreateGroup(event: FormEvent<HTMLFormElement>) {
@@ -141,7 +144,6 @@ export default function WatchlistPage() {
 
   return (
     <main className="min-h-screen">
-      <AppHeader />
       <section className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-8 sm:px-8">
         <header className="border-b border-slate-200 pb-5">
           <div>
@@ -169,7 +171,9 @@ export default function WatchlistPage() {
           <aside className="rounded-lg border border-slate-200 bg-panel p-4">
             <h2 className="text-sm font-semibold text-slate-600">分组</h2>
             <div className="mt-3 space-y-2">
-              {groups.map((group) => (
+              {groupsLoading ? (
+                <WatchlistGroupSkeleton />
+              ) : groups.map((group) => (
                 <div className="flex items-center gap-2" key={group.id}>
                   <button
                     className={`min-w-0 flex-1 rounded-md px-3 py-2 text-left text-sm ${
@@ -187,7 +191,7 @@ export default function WatchlistPage() {
                   </button>
                 </div>
               ))}
-              {groups.length === 0 ? <p className="text-sm text-slate-500">暂无分组</p> : null}
+              {!groupsLoading && groups.length === 0 ? <p className="text-sm text-slate-500">暂无分组</p> : null}
             </div>
           </aside>
 
@@ -228,7 +232,9 @@ export default function WatchlistPage() {
                 <h2 className="font-semibold">{selectedGroup?.name ?? "请选择分组"}</h2>
               </div>
               <div className="divide-y divide-slate-100">
-                {selectedGroup?.items.map((item) => (
+                {groupsLoading ? (
+                  <WatchlistItemSkeleton />
+                ) : selectedGroup?.items.map((item) => (
                   <div className="grid gap-3 p-4 md:grid-cols-[1.2fr_0.8fr_auto]" key={item.id}>
                     <div>
                       <p className="font-medium">{item.name_snapshot ?? item.symbol}</p>
@@ -255,12 +261,48 @@ export default function WatchlistPage() {
                     </div>
                   </div>
                 ))}
-                {selectedGroup && selectedGroup.items.length === 0 ? <p className="p-5 text-sm text-slate-500">当前分组暂无标的</p> : null}
+                {!groupsLoading && selectedGroup && selectedGroup.items.length === 0 ? <p className="p-5 text-sm text-slate-500">当前分组暂无标的</p> : null}
               </div>
             </section>
           </section>
         </div>
       </section>
     </main>
+  );
+}
+
+function WatchlistGroupSkeleton() {
+  return (
+    <>
+      {Array.from({ length: 4 }).map((_, index) => (
+        <div className="flex items-center gap-2" key={index}>
+          <div className="h-10 flex-1 animate-pulse rounded-md bg-slate-800/70" />
+          <div className="h-10 w-10 animate-pulse rounded-md bg-slate-800/70" />
+        </div>
+      ))}
+    </>
+  );
+}
+
+function WatchlistItemSkeleton() {
+  return (
+    <>
+      {Array.from({ length: 5 }).map((_, index) => (
+        <div className="grid gap-3 p-4 md:grid-cols-[1.2fr_0.8fr_auto]" key={index}>
+          <div>
+            <div className="h-4 w-32 animate-pulse rounded bg-slate-800/70" />
+            <div className="mt-3 h-3 w-20 animate-pulse rounded bg-slate-800/70" />
+          </div>
+          <div>
+            <div className="h-4 w-20 animate-pulse rounded bg-slate-800/70" />
+            <div className="mt-3 h-3 w-16 animate-pulse rounded bg-slate-800/70" />
+          </div>
+          <div className="flex gap-2 md:justify-end">
+            <div className="h-8 w-14 animate-pulse rounded-md bg-slate-800/70" />
+            <div className="h-8 w-14 animate-pulse rounded-md bg-slate-800/70" />
+          </div>
+        </div>
+      ))}
+    </>
   );
 }

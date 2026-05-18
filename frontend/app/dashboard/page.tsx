@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   AIResponse,
-  CurrentUser,
   BacktestSummary,
   MarketOverview,
   MonitoringStatus,
@@ -20,11 +19,9 @@ import {
   getWatchlistGroups,
   generateDashboardSummary,
 } from "@/lib/api/client";
-import { AppHeader } from "@/components/app-header";
 
 export default function DashboardPage() {
   const router = useRouter();
-  const [user, setUser] = useState<CurrentUser | null>(null);
   const [overview, setOverview] = useState<MarketOverview | null>(null);
   const [groups, setGroups] = useState<WatchlistGroup[]>([]);
   const [strategySummary, setStrategySummary] = useState<StrategySummary | null>(null);
@@ -38,25 +35,16 @@ export default function DashboardPage() {
 
   useEffect(() => {
     getCurrentUser()
-      .then(async (currentUser) => {
-        setUser(currentUser);
-        const [overviewData, groupData, strategyData, backtestData, signalData, statusData] = await Promise.all([
-          getMarketOverview(),
-          getWatchlistGroups(),
-          getStrategySummary(),
-          getBacktestSummary(),
-          getRecentSignals(6),
-          getMonitoringStatus(),
-        ]);
-        setOverview(overviewData);
-        setGroups(groupData);
-        setStrategySummary(strategyData);
-        setBacktestSummary(backtestData);
-        setSignals(signalData);
-        setMonitoringStatus(statusData);
+      .then(() => {
+        setLoading(false);
+        getMarketOverview().then(setOverview).catch(() => undefined);
+        getWatchlistGroups().then(setGroups).catch(() => undefined);
+        getStrategySummary().then(setStrategySummary).catch(() => undefined);
+        getBacktestSummary().then(setBacktestSummary).catch(() => undefined);
+        getRecentSignals(6).then(setSignals).catch(() => undefined);
+        getMonitoringStatus().then(setMonitoringStatus).catch(() => undefined);
       })
       .catch(() => router.replace("/login"))
-      .finally(() => setLoading(false));
   }, [router]);
 
   const watchlistItemCount = useMemo(() => groups.reduce((sum, group) => sum + group.items.length, 0), [groups]);
@@ -79,17 +67,8 @@ export default function DashboardPage() {
     }
   }
 
-  if (loading) {
-    return <main className="flex min-h-screen items-center justify-center text-sm text-slate-600">Loading...</main>;
-  }
-
-  if (!user) {
-    return null;
-  }
-
   return (
     <main className="min-h-screen">
-      <AppHeader />
       <section className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-8 sm:px-8">
         <header className="border-b border-slate-200 pb-6">
           <div>
@@ -102,29 +81,35 @@ export default function DashboardPage() {
         </header>
 
         <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-          <StatusCard
-            accent="市场"
-            title={leadingIndex?.name ?? "市场概览"}
-            value={leadingIndex ? leadingIndex.last_price.toFixed(2) : "-"}
-            detail={leadingIndex ? `${leadingIndex.symbol} ${formatSignedPct(leadingIndex.pct_change)}` : "等待行情快照"}
-            tone={leadingIndex && leadingIndex.pct_change < 0 ? "down" : "up"}
-          />
-          <StatusCard accent="自选" title="自选池" value={`${watchlistItemCount}`} detail={`${groups.length} 个分组正在跟踪`} />
-          <StatusCard accent="信号" title="今日策略信号" value={`${todaySignalCount}`} detail={`最近显示 ${signals.length} 条`} tone={todaySignalCount > 0 ? "warning" : "neutral"} />
-          <StatusCard
-            accent="策略"
-            title="运行中策略"
-            value={`${strategySummary?.enabled_count ?? 0}/${strategySummary?.total_count ?? 0}`}
-            detail="启用 / 全部策略配置"
-            tone={(strategySummary?.enabled_count ?? 0) > 0 ? "up" : "neutral"}
-          />
-          <StatusCard
-            accent="调度"
-            title={monitoringStatus?.scheduler_running ? "Scheduler 正常" : "Scheduler 待确认"}
-            value={monitoringStatus?.is_market_session ? "盘中" : "非盘中"}
-            detail={monitoringStatus?.provider ? `Provider ${monitoringStatus.provider}` : "等待状态"}
-            tone={monitoringStatus?.scheduler_running ? "up" : "warning"}
-          />
+          {loading ? (
+            Array.from({ length: 5 }).map((_, index) => <StatusCardSkeleton key={index} />)
+          ) : (
+            <>
+              <StatusCard
+                accent="市场"
+                title={leadingIndex?.name ?? "市场概览"}
+                value={leadingIndex ? leadingIndex.last_price.toFixed(2) : "-"}
+                detail={leadingIndex ? `${leadingIndex.symbol} ${formatSignedPct(leadingIndex.pct_change)}` : "等待行情快照"}
+                tone={leadingIndex && leadingIndex.pct_change < 0 ? "down" : "up"}
+              />
+              <StatusCard accent="自选" title="自选池" value={`${watchlistItemCount}`} detail={`${groups.length} 个分组正在跟踪`} />
+              <StatusCard accent="信号" title="今日策略信号" value={`${todaySignalCount}`} detail={`最近显示 ${signals.length} 条`} tone={todaySignalCount > 0 ? "warning" : "neutral"} />
+              <StatusCard
+                accent="策略"
+                title="运行中策略"
+                value={`${strategySummary?.enabled_count ?? 0}/${strategySummary?.total_count ?? 0}`}
+                detail="启用 / 全部策略配置"
+                tone={(strategySummary?.enabled_count ?? 0) > 0 ? "up" : "neutral"}
+              />
+              <StatusCard
+                accent="调度"
+                title={monitoringStatus?.scheduler_running ? "Scheduler 正常" : "Scheduler 待确认"}
+                value={monitoringStatus?.is_market_session ? "盘中" : "非盘中"}
+                detail={monitoringStatus?.provider ? `Provider ${monitoringStatus.provider}` : "等待状态"}
+                tone={monitoringStatus?.scheduler_running ? "up" : "warning"}
+              />
+            </>
+          )}
         </section>
 
         <section className="grid gap-6 lg:grid-cols-[minmax(0,1.55fr)_minmax(320px,0.75fr)]">
@@ -142,7 +127,9 @@ export default function DashboardPage() {
               </button>
             </div>
 
-            {signals.length > 0 ? (
+            {loading ? (
+              <ListSkeleton rows={4} />
+            ) : signals.length > 0 ? (
               <div className="mt-5 divide-y divide-slate-100 rounded-md border border-slate-200">
                 {signals.map((signal) => (
                   <button
@@ -206,7 +193,9 @@ export default function DashboardPage() {
                 管理
               </button>
             </div>
-            {strategySummary && strategySummary.recent_configs.length > 0 ? (
+            {loading || !strategySummary ? (
+              <ListSkeleton rows={3} />
+            ) : strategySummary && strategySummary.recent_configs.length > 0 ? (
               <div className="mt-5 divide-y divide-slate-100 rounded-md border border-slate-200">
                 {strategySummary.recent_configs.slice(0, 4).map((config) => (
                   <div className="grid gap-2 p-3 text-sm md:grid-cols-[1fr_auto_auto]" key={config.id}>
@@ -233,7 +222,9 @@ export default function DashboardPage() {
                 查看
               </button>
             </div>
-            {backtestSummary && backtestSummary.recent_runs.length > 0 ? (
+            {loading || !backtestSummary ? (
+              <ListSkeleton rows={3} />
+            ) : backtestSummary && backtestSummary.recent_runs.length > 0 ? (
               <div className="mt-5 divide-y divide-slate-100 rounded-md border border-slate-200">
                 {backtestSummary.recent_runs.slice(0, 4).map((run) => (
                   <button
@@ -313,6 +304,34 @@ function StatusCard({
       <p className="mt-2 text-xs text-slate-500">{detail}</p>
     </article>
   );
+}
+
+function StatusCardSkeleton() {
+  return (
+    <article className="rounded-lg border border-slate-200 bg-panel p-4">
+      <SkeletonLine className="h-3 w-20" />
+      <SkeletonLine className="mt-4 h-4 w-28" />
+      <SkeletonLine className="mt-5 h-8 w-24" />
+      <SkeletonLine className="mt-4 h-3 w-32" />
+    </article>
+  );
+}
+
+function ListSkeleton({ rows }: { rows: number }) {
+  return (
+    <div className="mt-5 divide-y divide-slate-100 rounded-md border border-slate-200">
+      {Array.from({ length: rows }).map((_, index) => (
+        <div className="p-4" key={index}>
+          <SkeletonLine className="h-4 w-2/5" />
+          <SkeletonLine className="mt-3 h-3 w-4/5" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function SkeletonLine({ className = "" }: { className?: string }) {
+  return <div className={`animate-pulse rounded bg-slate-800/70 ${className}`} />;
 }
 
 function QuickAction({ title, detail, onClick }: { title: string; detail: string; onClick: () => void }) {

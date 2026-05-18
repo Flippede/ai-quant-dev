@@ -18,7 +18,6 @@ import {
   getWatchlistGroups,
   searchInstruments,
 } from "@/lib/api/client";
-import { AppHeader } from "@/components/app-header";
 import { ColorType, IChartApi, Time, createChart } from "lightweight-charts";
 
 type SelectedInstrument = {
@@ -181,13 +180,8 @@ export default function MarketWorkspacePage() {
     }
   }
 
-  if (loading) {
-    return <main className="flex min-h-screen items-center justify-center text-sm text-slate-600">Loading...</main>;
-  }
-
   return (
     <main className="min-h-screen">
-      <AppHeader />
       <section className="mx-auto flex max-w-[1500px] flex-col gap-5 px-4 py-6 sm:px-8">
         <header className="flex flex-col gap-3 border-b border-slate-200 pb-5 lg:flex-row lg:items-end lg:justify-between">
           <div>
@@ -241,7 +235,9 @@ export default function MarketWorkspacePage() {
             ) : null}
 
             <div className="mt-5 space-y-4">
-              {groups.length > 0 ? (
+              {loading ? (
+                <MarketListSkeleton />
+              ) : groups.length > 0 ? (
                 groups.map((group) => (
                   <div key={group.id}>
                     <p className="mb-2 text-xs font-medium text-slate-500">{group.name}</p>
@@ -303,7 +299,14 @@ export default function MarketWorkspacePage() {
               </div>
             </div>
             <div className="relative mt-4 h-[560px] overflow-hidden rounded-md border border-slate-200 bg-[#080d18]">
-              {chartLoading ? <div className="absolute inset-0 z-10 flex items-center justify-center bg-[#080d18]/72 text-sm text-slate-600">加载行情数据...</div> : null}
+              {chartLoading ? (
+                <div className="absolute inset-0 z-10 flex items-center justify-center bg-[#080d18]/72 text-sm text-slate-600">
+                  <div className="grid gap-3 text-center">
+                    <div className="mx-auto h-2 w-40 animate-pulse rounded bg-cyan-300/20" />
+                    <span>加载行情数据...</span>
+                  </div>
+                </div>
+              ) : null}
               {!chartLoading && chartMode === "daily" && bars.length > 0 ? <MarketChart bars={bars} /> : null}
               {!chartLoading && chartMode === "time" && intradayBars.length > 0 ? <IntradayLineChart bars={intradayBars} /> : null}
               {!chartLoading && chartMode !== "daily" && chartMode !== "time" && intradayBars.length > 0 ? <IntradayCandleChart bars={intradayBars} /> : null}
@@ -318,7 +321,7 @@ export default function MarketWorkspacePage() {
 
           <aside className="rounded-lg border border-slate-200 bg-panel p-4">
             <h2 className="font-semibold">量化联动</h2>
-            <QuotePanel quote={quote} fallback={selected} />
+            <QuotePanel quote={quote} fallback={selected} loading={chartLoading} />
             <div className="mt-5">
               <div className="flex items-center justify-between gap-3">
                 <h3 className="font-medium">最近策略信号</h3>
@@ -586,7 +589,33 @@ function InstrumentButton({ active, name, symbol, meta, onClick }: { active: boo
   );
 }
 
-function QuotePanel({ quote, fallback }: { quote: Quote | null; fallback: SelectedInstrument }) {
+function MarketListSkeleton() {
+  return (
+    <div className="space-y-3">
+      {Array.from({ length: 6 }).map((_, index) => (
+        <div className="rounded-md border border-slate-200 p-3" key={index}>
+          <div className="h-4 w-24 animate-pulse rounded bg-slate-800/70" />
+          <div className="mt-3 h-3 w-36 animate-pulse rounded bg-slate-800/70" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function QuotePanel({ quote, fallback, loading }: { quote: Quote | null; fallback: SelectedInstrument; loading: boolean }) {
+  if (loading) {
+    return (
+      <div className="mt-4 rounded-md border border-slate-200 bg-[#0b1322]/70 p-4">
+        <div className="h-4 w-28 animate-pulse rounded bg-slate-800/70" />
+        <div className="mt-4 h-9 w-32 animate-pulse rounded bg-slate-800/70" />
+        <div className="mt-5 grid gap-3">
+          <div className="h-4 w-full animate-pulse rounded bg-slate-800/70" />
+          <div className="h-4 w-4/5 animate-pulse rounded bg-slate-800/70" />
+          <div className="h-4 w-3/5 animate-pulse rounded bg-slate-800/70" />
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="mt-4 rounded-md border border-slate-200 bg-[#0b1322]/70 p-4">
       <p className="text-sm text-slate-500">{quote?.name ?? fallback.name}</p>

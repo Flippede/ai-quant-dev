@@ -3,7 +3,6 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { BacktestRun, StrategyConfig, createBacktest, getBacktests, getCurrentUser, getStrategyConfigs } from "@/lib/api/client";
-import { AppHeader } from "@/components/app-header";
 
 export default function BacktestsPage() {
   const router = useRouter();
@@ -74,7 +73,6 @@ export default function BacktestsPage() {
 
   return (
     <main className="min-h-screen">
-      <AppHeader />
       <section className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-8 sm:px-8">
         <header className="border-b border-slate-200 pb-5">
           <div>

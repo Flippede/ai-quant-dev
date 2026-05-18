@@ -3,7 +3,6 @@
 import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AdminUser, CurrentUser, apiRequest, getCurrentUser } from "@/lib/api/client";
-import { AppHeader } from "@/components/app-header";
 
 export default function AdminUsersPage() {
   const router = useRouter();
@@ -77,7 +76,6 @@ export default function AdminUsersPage() {
 
   return (
     <main className="min-h-screen">
-      <AppHeader />
       <section className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-8 sm:px-8">
         <header className="border-b border-slate-200 pb-5">
           <div>

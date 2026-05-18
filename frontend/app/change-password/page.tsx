@@ -3,7 +3,6 @@
 import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { changePassword, getCurrentUser } from "@/lib/api/client";
-import { AppHeader } from "@/components/app-header";
 
 export default function ChangePasswordPage() {
   const router = useRouter();
@@ -44,7 +43,6 @@ export default function ChangePasswordPage() {
 
   return (
     <main className="min-h-screen">
-      <AppHeader />
       <section className="mx-auto flex max-w-md flex-col px-4 py-12 sm:px-8">
         <div className="rounded-lg border border-slate-200 bg-panel p-6">
         <div>

@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { StrategyTemplate, createStrategyConfig, getCurrentUser, getStrategyTemplate } from "@/lib/api/client";
-import { AppHeader } from "@/components/app-header";
 
 export default function StrategyTemplateDetailPage() {
   const router = useRouter();
@@ -42,7 +41,6 @@ export default function StrategyTemplateDetailPage() {
 
   return (
     <main className="min-h-screen">
-      <AppHeader />
       <section className="mx-auto flex max-w-4xl flex-col gap-6 px-4 py-8 sm:px-8">
         <header className="flex flex-col gap-4 border-b border-slate-200 pb-5 sm:flex-row sm:items-center sm:justify-between">
           <div>
