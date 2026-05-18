@@ -5,10 +5,10 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        background: "#f6f7f9",
-        foreground: "#172033",
-        panel: "#ffffff",
-        accent: "#0f766e",
+        background: "#070b12",
+        foreground: "#e6edf7",
+        panel: "#101827",
+        accent: "#20d6c7",
       },
     },
   },
@@ -16,4 +16,3 @@ const config: Config = {
 };
 
 export default config;
-
