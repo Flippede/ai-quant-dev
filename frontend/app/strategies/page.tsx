@@ -10,6 +10,7 @@ import {
   getStrategyConfigs,
   getStrategyTemplates,
 } from "@/lib/api/client";
+import { AppHeader } from "@/components/app-header";
 
 export default function StrategiesPage() {
   const router = useRouter();
@@ -65,16 +66,14 @@ export default function StrategiesPage() {
   }
 
   return (
-    <main className="min-h-screen px-4 py-6 sm:px-8">
-      <section className="mx-auto flex max-w-6xl flex-col gap-6">
-        <header className="flex flex-col gap-4 border-b border-slate-200 pb-5 sm:flex-row sm:items-center sm:justify-between">
+    <main className="min-h-screen">
+      <AppHeader />
+      <section className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-8 sm:px-8">
+        <header className="border-b border-slate-200 pb-5">
           <div>
             <p className="text-sm font-medium text-accent">Strategies</p>
             <h1 className="mt-2 text-3xl font-semibold">策略中心</h1>
           </div>
-          <button className="rounded-md border border-slate-300 px-4 py-2 text-sm" onClick={() => router.push("/dashboard")}>
-            返回首页
-          </button>
         </header>
 
         {error ? <p className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</p> : null}

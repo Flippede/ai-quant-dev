@@ -19,8 +19,8 @@ import {
   getStrategySummary,
   getWatchlistGroups,
   generateDashboardSummary,
-  logout,
 } from "@/lib/api/client";
+import { AppHeader } from "@/components/app-header";
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -67,11 +67,6 @@ export default function DashboardPage() {
   const leadingIndex = overview?.indices[0] ?? null;
   const latestMarketTime = overview?.updated_at ?? leadingIndex?.updated_at ?? monitoringStatus?.last_quote_refresh_at;
 
-  async function handleLogout() {
-    await logout();
-    router.replace("/login");
-  }
-
   async function handleAISummary() {
     setAiError("");
     setAiLoading(true);
@@ -93,27 +88,16 @@ export default function DashboardPage() {
   }
 
   return (
-    <main className="min-h-screen px-4 py-6 sm:px-8">
-      <section className="mx-auto flex max-w-7xl flex-col gap-6">
-        <header className="flex flex-col gap-5 border-b border-slate-200 pb-6 lg:flex-row lg:items-center lg:justify-between">
+    <main className="min-h-screen">
+      <AppHeader />
+      <section className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-8 sm:px-8">
+        <header className="border-b border-slate-200 pb-6">
           <div>
             <p className="text-sm font-semibold uppercase tracking-[0.22em] text-accent">QuantBeacon</p>
             <h1 className="mt-3 text-3xl font-semibold tracking-normal text-foreground sm:text-5xl">量化交易工作台</h1>
             <p className="mt-3 max-w-2xl text-base leading-7 text-slate-600">
               把行情、自选、策略信号与回测收敛到一个清晰入口，让每天的量化交易判断更轻、更快。
             </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <NavButton label="AI助手" onClick={() => router.push("/ai/strategy-advisor")} />
-            <NavButton label="信号" onClick={() => router.push("/signals")} />
-            <NavButton label="回测" onClick={() => router.push("/backtests")} />
-            <NavButton label="策略" onClick={() => router.push("/strategies")} />
-            <NavButton label="自选" onClick={() => router.push("/watchlist")} />
-            <NavButton label="密码" onClick={() => router.push("/change-password")} />
-            {user.role === "admin" ? <NavButton label="用户管理" onClick={() => router.push("/admin/users")} /> : null}
-            <button className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white" onClick={handleLogout}>
-              退出
-            </button>
           </div>
         </header>
 
@@ -299,14 +283,6 @@ export default function DashboardPage() {
         </section>
       </section>
     </main>
-  );
-}
-
-function NavButton({ label, onClick }: { label: string; onClick: () => void }) {
-  return (
-    <button className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium" onClick={onClick}>
-      {label}
-    </button>
   );
 }
 

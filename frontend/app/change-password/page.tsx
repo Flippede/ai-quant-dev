@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { changePassword, getCurrentUser } from "@/lib/api/client";
+import { AppHeader } from "@/components/app-header";
 
 export default function ChangePasswordPage() {
   const router = useRouter();
@@ -42,13 +43,12 @@ export default function ChangePasswordPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center px-4 py-8">
-      <section className="w-full max-w-md rounded-lg border border-slate-200 bg-panel p-6">
-        <div className="flex items-center justify-between gap-4">
+    <main className="min-h-screen">
+      <AppHeader />
+      <section className="mx-auto flex max-w-md flex-col px-4 py-12 sm:px-8">
+        <div className="rounded-lg border border-slate-200 bg-panel p-6">
+        <div>
           <h1 className="text-2xl font-semibold">修改密码</h1>
-          <button className="rounded-md border border-slate-300 px-3 py-2 text-sm" onClick={() => router.push("/dashboard")}>
-            返回
-          </button>
         </div>
         <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
           <label className="block text-sm font-medium">
@@ -91,6 +91,7 @@ export default function ChangePasswordPage() {
             {submitting ? "提交中..." : "保存"}
           </button>
         </form>
+        </div>
       </section>
     </main>
   );
