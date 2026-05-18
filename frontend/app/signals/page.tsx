@@ -10,7 +10,7 @@ export default function SignalsPage() {
   const [signals, setSignals] = useState<StrategySignal[]>([]);
   const [severity, setSeverity] = useState("");
   const [signalType, setSignalType] = useState("");
-  const [symbol, setSymbol] = useState("");
+  const [symbol, setSymbol] = useState(initialQueryValue("symbol"));
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [aiResults, setAiResults] = useState<Record<string, AIResponse>>({});
@@ -21,10 +21,13 @@ export default function SignalsPage() {
   }
 
   useEffect(() => {
+    const initialSymbol = initialQueryValue("symbol");
     getCurrentUser()
-      .then(loadSignals)
+      .then(() => getSignals({ severity, signal_type: signalType, symbol: initialSymbol, limit: 100 }))
+      .then(setSignals)
       .catch(() => router.replace("/login"))
       .finally(() => setLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
 
   async function handleFilter(event: FormEvent<HTMLFormElement>) {
@@ -120,6 +123,13 @@ export default function SignalsPage() {
       </section>
     </main>
   );
+}
+
+function initialQueryValue(key: string) {
+  if (typeof window === "undefined") {
+    return "";
+  }
+  return new URLSearchParams(window.location.search).get(key) ?? "";
 }
 
 function AIResultBlock({ result }: { result: AIResponse }) {

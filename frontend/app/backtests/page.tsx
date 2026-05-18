@@ -10,7 +10,7 @@ export default function BacktestsPage() {
   const [configs, setConfigs] = useState<StrategyConfig[]>([]);
   const [runs, setRuns] = useState<BacktestRun[]>([]);
   const [strategyConfigId, setStrategyConfigId] = useState("");
-  const [symbolsText, setSymbolsText] = useState("510300,510500,159915,512880");
+  const [symbolsText, setSymbolsText] = useState(() => initialQueryValue("symbols") || "510300,510500,159915,512880");
   const [startDate, setStartDate] = useState("2024-01-01");
   const [endDate, setEndDate] = useState("2025-12-31");
   const [initialCash, setInitialCash] = useState(100000);
@@ -39,6 +39,7 @@ export default function BacktestsPage() {
       .then(loadData)
       .catch(() => router.replace("/login"))
       .finally(() => setLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -166,6 +167,13 @@ export default function BacktestsPage() {
       </section>
     </main>
   );
+}
+
+function initialQueryValue(key: string) {
+  if (typeof window === "undefined") {
+    return "";
+  }
+  return new URLSearchParams(window.location.search).get(key) ?? "";
 }
 
 function formatPct(value: unknown) {

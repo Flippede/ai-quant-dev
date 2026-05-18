@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -45,3 +45,23 @@ class QuotesRequest(BaseModel):
 class InstrumentDetailResponse(BaseModel):
     instrument: InstrumentPublic
     quote: QuotePublic
+
+
+class DailyBarPublic(BaseModel):
+    symbol: str
+    market: str
+    trade_date: date
+    open: float
+    high: float
+    low: float
+    close: float
+    volume: float
+    amount: float
+
+
+class MarketBarsResponse(BaseModel):
+    symbol: str
+    market: str
+    period: str
+    adjustment_mode: str
+    bars: list[DailyBarPublic]

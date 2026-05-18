@@ -1,3 +1,5 @@
+from datetime import date
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
@@ -7,11 +9,14 @@ from app.models.core import User
 from app.schemas.market import (
     InstrumentDetailResponse,
     InstrumentPublic,
+    DailyBarPublic,
+    MarketBarsResponse,
     MarketOverviewResponse,
     QuotesRequest,
     QuotePublic,
 )
 from app.services.market_service import get_instrument, get_market_overview, get_quotes, quote_for_instrument, search_instruments
+from app.market_data.provider import get_market_data_provider
 
 router = APIRouter(tags=["market"])
 
@@ -56,4 +61,43 @@ def instrument_detail(
     return InstrumentDetailResponse(
         instrument=InstrumentPublic.model_validate(instrument),
         quote=quote_for_instrument(db, instrument),
+    )
+
+
+@router.get("/api/market/bars", response_model=MarketBarsResponse)
+def market_bars(
+    symbol: str = Query(min_length=1, max_length=32),
+    market: str = Query(default="CN", min_length=1, max_length=16),
+    period: str = Query(default="1d"),
+    adjust: str = Query(default="qfq", pattern="^(none|qfq|hfq)$"),
+    start_date: date = Query(...),
+    end_date: date = Query(...),
+    _: User = Depends(get_current_user),
+) -> MarketBarsResponse:
+    if period != "1d":
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Only daily period 1d is supported in this MVP")
+    if start_date > end_date:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="start_date must be before end_date")
+
+    provider = get_market_data_provider()
+    bars = provider.get_daily_bars(symbol, market, start_date, end_date, adjust)
+    return MarketBarsResponse(
+        symbol=symbol,
+        market=market,
+        period=period,
+        adjustment_mode=adjust,
+        bars=[
+            DailyBarPublic(
+                symbol=bar.symbol,
+                market=bar.market,
+                trade_date=bar.ts if isinstance(bar.ts, date) else bar.ts.date(),
+                open=float(bar.open),
+                high=float(bar.high),
+                low=float(bar.low),
+                close=float(bar.close),
+                volume=float(bar.volume),
+                amount=float(bar.amount),
+            )
+            for bar in bars
+        ],
     )

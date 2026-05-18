@@ -7,6 +7,7 @@ import { CurrentUser, getCurrentUser, logout } from "@/lib/api/client";
 
 const navItems = [
   { label: "工作台", href: "/dashboard" },
+  { label: "看盘", href: "/market" },
   { label: "自选", href: "/watchlist" },
   { label: "策略", href: "/strategies" },
   { label: "回测", href: "/backtests" },

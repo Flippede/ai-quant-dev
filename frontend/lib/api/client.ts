@@ -34,6 +34,26 @@ export type MarketOverview = {
   updated_at: string;
 };
 
+export type DailyBar = {
+  symbol: string;
+  market: string;
+  trade_date: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+  amount: number;
+};
+
+export type MarketBarsResponse = {
+  symbol: string;
+  market: string;
+  period: string;
+  adjustment_mode: "none" | "qfq" | "hfq";
+  bars: DailyBar[];
+};
+
 export type Instrument = {
   symbol: string;
   market: string;
@@ -305,6 +325,32 @@ export function getMarketOverview() {
   return apiRequest<MarketOverview>("/api/market/overview");
 }
 
+export function getMarketQuotes(symbols: string[]) {
+  return apiRequest<Quote[]>("/api/market/quotes", {
+    method: "POST",
+    body: JSON.stringify({ symbols }),
+  });
+}
+
+export function getMarketBars(params: {
+  symbol: string;
+  market?: string;
+  period?: "1d";
+  adjust?: "none" | "qfq" | "hfq";
+  start_date: string;
+  end_date: string;
+}) {
+  const query = new URLSearchParams({
+    symbol: params.symbol,
+    market: params.market ?? "CN",
+    period: params.period ?? "1d",
+    adjust: params.adjust ?? "qfq",
+    start_date: params.start_date,
+    end_date: params.end_date,
+  });
+  return apiRequest<MarketBarsResponse>(`/api/market/bars?${query.toString()}`);
+}
+
 export function searchInstruments(keyword: string) {
   return apiRequest<Instrument[]>(`/api/instruments/search?q=${encodeURIComponent(keyword)}`);
 }
@@ -335,6 +381,13 @@ export function addWatchlistItem(groupId: string, instrument: Instrument) {
   return apiRequest<WatchlistItem>("/api/watchlist/items", {
     method: "POST",
     body: JSON.stringify({ group_id: groupId, symbol: instrument.symbol, market: instrument.market }),
+  });
+}
+
+export function addWatchlistSymbol(groupId: string, symbol: string, market = "CN") {
+  return apiRequest<WatchlistItem>("/api/watchlist/items", {
+    method: "POST",
+    body: JSON.stringify({ group_id: groupId, symbol, market }),
   });
 }
 
