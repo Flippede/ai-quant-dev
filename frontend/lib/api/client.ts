@@ -54,6 +54,28 @@ export type MarketBarsResponse = {
   bars: DailyBar[];
 };
 
+export type IntradayBar = {
+  symbol: string;
+  market: string;
+  ts: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+  amount: number;
+};
+
+export type IntradayBarsResponse = {
+  symbol: string;
+  market: string;
+  instrument_type: "auto" | "stock" | "etf" | "index";
+  period: "1" | "15" | "30" | "60";
+  adjustment_mode: "none" | "qfq" | "hfq";
+  bars: IntradayBar[];
+  source_note?: string | null;
+};
+
 export type Instrument = {
   symbol: string;
   market: string;
@@ -349,6 +371,27 @@ export function getMarketBars(params: {
     end_date: params.end_date,
   });
   return apiRequest<MarketBarsResponse>(`/api/market/bars?${query.toString()}`);
+}
+
+export function getIntradayBars(params: {
+  symbol: string;
+  market?: string;
+  instrument_type?: "auto" | "stock" | "etf" | "index";
+  period: "1" | "15" | "30" | "60";
+  adjust?: "none" | "qfq" | "hfq";
+  start_datetime: string;
+  end_datetime: string;
+}) {
+  const query = new URLSearchParams({
+    symbol: params.symbol,
+    market: params.market ?? "CN",
+    instrument_type: params.instrument_type ?? "auto",
+    period: params.period,
+    adjust: params.adjust ?? "none",
+    start_datetime: params.start_datetime,
+    end_datetime: params.end_datetime,
+  });
+  return apiRequest<IntradayBarsResponse>(`/api/market/intraday-bars?${query.toString()}`);
 }
 
 export function searchInstruments(keyword: string) {

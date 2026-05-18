@@ -61,7 +61,16 @@ class MarketDataProvider(ABC):
         return bars[-periods:]
 
     @abstractmethod
-    def get_intraday_bars(self, symbol: str, freq: str, start: datetime, end: datetime) -> list[Bar]:
+    def get_intraday_bars(
+        self,
+        symbol: str,
+        market: str,
+        instrument_type: str,
+        period: str,
+        start: datetime,
+        end: datetime,
+        adjust_mode: str = "none",
+    ) -> list[Bar]:
         raise NotImplementedError
 
     @abstractmethod

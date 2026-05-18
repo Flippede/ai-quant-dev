@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 
 from app.market_data.base import Bar, InstrumentInfo, MarketDataProvider, Quote
 
@@ -15,7 +15,16 @@ class TushareProvider(MarketDataProvider):
     def get_daily_bars(self, symbol: str, market: str, start: date, end: date, adjust_mode: str = "qfq") -> list[Bar]:
         self._not_configured()
 
-    def get_intraday_bars(self, symbol, freq, start, end):
+    def get_intraday_bars(
+        self,
+        symbol: str,
+        market: str,
+        instrument_type: str,
+        period: str,
+        start: datetime,
+        end: datetime,
+        adjust_mode: str = "none",
+    ) -> list[Bar]:
         self._not_configured()
 
     def get_index_quotes(self, symbols: list[str]) -> list[Quote]:

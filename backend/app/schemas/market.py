@@ -65,3 +65,25 @@ class MarketBarsResponse(BaseModel):
     period: str
     adjustment_mode: str
     bars: list[DailyBarPublic]
+
+
+class IntradayBarPublic(BaseModel):
+    symbol: str
+    market: str
+    ts: datetime
+    open: float
+    high: float
+    low: float
+    close: float
+    volume: float
+    amount: float
+
+
+class IntradayBarsResponse(BaseModel):
+    symbol: str
+    market: str
+    instrument_type: str
+    period: str
+    adjustment_mode: str
+    bars: list[IntradayBarPublic]
+    source_note: str | None = None

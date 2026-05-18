@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
@@ -10,6 +10,8 @@ from app.schemas.market import (
     InstrumentDetailResponse,
     InstrumentPublic,
     DailyBarPublic,
+    IntradayBarPublic,
+    IntradayBarsResponse,
     MarketBarsResponse,
     MarketOverviewResponse,
     QuotesRequest,
@@ -100,4 +102,50 @@ def market_bars(
             )
             for bar in bars
         ],
+    )
+
+
+@router.get("/api/market/intraday-bars", response_model=IntradayBarsResponse)
+def market_intraday_bars(
+    symbol: str = Query(min_length=1, max_length=32),
+    market: str = Query(default="CN", min_length=1, max_length=16),
+    instrument_type: str = Query(default="auto", pattern="^(auto|stock|etf|index)$"),
+    period: str = Query(default="1", pattern="^(1|15|30|60)$"),
+    adjust: str = Query(default="none", pattern="^(none|qfq|hfq)$"),
+    start_datetime: datetime = Query(...),
+    end_datetime: datetime = Query(...),
+    _: User = Depends(get_current_user),
+) -> IntradayBarsResponse:
+    if start_datetime > end_datetime:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="start_datetime must be before end_datetime")
+
+    provider = get_market_data_provider()
+    try:
+        bars = provider.get_intraday_bars(symbol, market, instrument_type, period, start_datetime, end_datetime, adjust)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Intraday market data provider unavailable") from exc
+
+    return IntradayBarsResponse(
+        symbol=symbol,
+        market=market,
+        instrument_type=instrument_type,
+        period=period,
+        adjustment_mode=adjust,
+        bars=[
+            IntradayBarPublic(
+                symbol=bar.symbol,
+                market=bar.market,
+                ts=bar.ts if isinstance(bar.ts, datetime) else datetime.combine(bar.ts, datetime.min.time()),
+                open=float(bar.open),
+                high=float(bar.high),
+                low=float(bar.low),
+                close=float(bar.close),
+                volume=float(bar.volume),
+                amount=float(bar.amount),
+            )
+            for bar in bars
+        ],
+        source_note="分钟行情优先使用 AKShare Eastmoney 接口；当前环境 Eastmoney 不稳定时降级到 AKShare stock_zh_a_minute。",
     )

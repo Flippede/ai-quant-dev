@@ -29,7 +29,7 @@ class AKShareProvider(MarketDataProvider):
         ):
             try:
                 df = fetcher()
-            except Exception:
+            except Exception as exc:
                 logger.exception("AKShare realtime quote fetch failed asset_type=%s", asset_type)
                 continue
             rows.extend(self._spot_rows(df, symbols, asset_type))
@@ -119,7 +119,62 @@ class AKShareProvider(MarketDataProvider):
                 return bars
         return []
 
-    def get_intraday_bars(self, symbol: str, freq: str, start: datetime, end: datetime) -> list[Bar]:
+    def get_intraday_bars(
+        self,
+        symbol: str,
+        market: str,
+        instrument_type: str,
+        period: str,
+        start: datetime,
+        end: datetime,
+        adjust_mode: str = "none",
+    ) -> list[Bar]:
+        clean = normalize_symbol(symbol)
+        period_s = str(period).removesuffix("min").removesuffix("m")
+        if period_s not in {"1", "15", "30", "60"}:
+            raise ValueError("Unsupported intraday period")
+        provider_adjust = "" if adjust_mode == "none" else adjust_mode
+        asset_type = _normalize_asset_type(instrument_type, clean)
+        start_s = start.strftime("%Y-%m-%d %H:%M:%S")
+        end_s = end.strftime("%Y-%m-%d %H:%M:%S")
+
+        fetchers = [
+            (
+                "sina",
+                lambda: self.ak.stock_zh_a_minute(
+                    symbol=_akshare_minute_code(clean, asset_type),
+                    period=period_s,
+                    adjust=provider_adjust,
+                ),
+            ),
+            (
+                "eastmoney",
+                lambda: self._fetch_intraday_em(
+                    clean,
+                    asset_type,
+                    period_s,
+                    start_s,
+                    end_s,
+                    provider_adjust,
+                ),
+            ),
+        ]
+        for source, fetcher in fetchers:
+            try:
+                df = fetcher()
+            except Exception:
+                logger.warning(
+                    "AKShare intraday bars fetch failed source=%s symbol=%s asset_type=%s period=%s error=%s",
+                    source,
+                    clean,
+                    asset_type,
+                    period_s,
+                    type(exc).__name__,
+                )
+                continue
+            bars = self._intraday_rows(clean, df, start, end)
+            if bars:
+                return bars
         return []
 
     def get_market_calendar(self, start: date, end: date) -> list[date]:
@@ -185,6 +240,43 @@ class AKShareProvider(MarketDataProvider):
             )
         return bars
 
+    def _fetch_intraday_em(self, symbol: str, asset_type: str, period: str, start: str, end: str, adjust: str):
+        if asset_type == "etf":
+            return self.ak.fund_etf_hist_min_em(symbol=symbol, start_date=start, end_date=end, period=period, adjust=adjust)
+        if asset_type == "index":
+            return self.ak.index_zh_a_hist_min_em(symbol=symbol, start_date=start, end_date=end, period=period)
+        return self.ak.stock_zh_a_hist_min_em(symbol=symbol, start_date=start, end_date=end, period=period, adjust=adjust)
+
+    def _intraday_rows(self, symbol: str, df: Any, start: datetime, end: datetime) -> list[Bar]:
+        bars: list[Bar] = []
+        for row in df.to_dict("records"):
+            raw_ts = row.get("时间") or row.get("day") or row.get("datetime")
+            if not raw_ts:
+                continue
+            try:
+                ts = raw_ts if isinstance(raw_ts, datetime) else datetime.strptime(str(raw_ts), "%Y-%m-%d %H:%M:%S")
+            except ValueError:
+                try:
+                    ts = datetime.fromisoformat(str(raw_ts))
+                except ValueError:
+                    continue
+            if ts < start or ts > end:
+                continue
+            bars.append(
+                Bar(
+                    symbol=symbol,
+                    market="CN",
+                    ts=ts,
+                    open=_decimal(row.get("开盘") or row.get("open")),
+                    high=_decimal(row.get("最高") or row.get("high")),
+                    low=_decimal(row.get("最低") or row.get("low")),
+                    close=_decimal(row.get("收盘") or row.get("close")),
+                    volume=_decimal(row.get("成交量") or row.get("volume")),
+                    amount=_decimal(row.get("成交额") or row.get("amount")),
+                )
+            )
+        return sorted(bars, key=lambda item: item.ts)
+
 
 def _decimal(value: Any) -> Decimal:
     try:
@@ -199,3 +291,21 @@ def _exchange_for(symbol: str, asset_type: str) -> str | None:
     if asset_type == "index" and symbol in {"000001", "000300"}:
         return "SH"
     return infer_exchange(symbol)
+
+
+def _normalize_asset_type(instrument_type: str | None, symbol: str) -> str:
+    if instrument_type in {"stock", "etf", "index"}:
+        return instrument_type
+    if symbol.startswith(("5", "1")):
+        return "etf"
+    if symbol in {"000001", "000300", "000905", "399001", "399006"}:
+        return "index"
+    return "stock"
+
+
+def _akshare_minute_code(symbol: str, asset_type: str) -> str:
+    if asset_type == "index" and symbol in {"000001", "000300", "000905"}:
+        return f"sh{symbol}"
+    exchange = infer_exchange(symbol)
+    prefix = {"SH": "sh", "SZ": "sz", "BJ": "bj"}.get(exchange or "", "")
+    return f"{prefix}{symbol}"

@@ -101,12 +101,28 @@ class MockMarketDataProvider(MarketDataProvider):
             current += timedelta(days=1)
         return bars
 
-    def get_intraday_bars(self, symbol: str, freq: str, start: datetime, end: datetime) -> list[Bar]:
+    def get_intraday_bars(
+        self,
+        symbol: str,
+        market: str,
+        instrument_type: str,
+        period: str,
+        start: datetime,
+        end: datetime,
+        adjust_mode: str = "none",
+    ) -> list[Bar]:
         bars: list[Bar] = []
         current = start
         price = PRICE_BASES.get(symbol, Decimal("10"))
-        step = timedelta(minutes=1 if freq == "1m" else 5)
+        step = timedelta(minutes=int(period))
         while current <= end:
+            if current.weekday() >= 5:
+                current += step
+                continue
+            current_time = current.time()
+            if not ((current_time.hour == 9 and current_time.minute >= 30) or current_time.hour == 10 or current_time.hour == 11 and current_time.minute <= 30 or current_time.hour in {13, 14} or current_time.hour == 15 and current_time.minute == 0):
+                current += step
+                continue
             bars.append(
                 Bar(
                     symbol=symbol,

@@ -4,12 +4,14 @@ import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "re
 import { useRouter } from "next/navigation";
 import {
   DailyBar,
+  IntradayBar,
   Instrument,
   Quote,
   StrategySignal,
   WatchlistGroup,
   addWatchlistSymbol,
   getCurrentUser,
+  getIntradayBars,
   getMarketBars,
   getMarketQuotes,
   getSignals,
@@ -27,6 +29,7 @@ type SelectedInstrument = {
 };
 
 type RangePreset = "3d" | "1w" | "1m" | "3m" | "6m" | "1y" | "all";
+type ChartMode = "daily" | "time" | "15" | "30" | "60";
 
 const rangePresets: Array<{ key: RangePreset; label: string }> = [
   { key: "3d", label: "近3日" },
@@ -36,6 +39,14 @@ const rangePresets: Array<{ key: RangePreset; label: string }> = [
   { key: "6m", label: "近6月" },
   { key: "1y", label: "近1年" },
   { key: "all", label: "全部" },
+];
+
+const chartModes: Array<{ key: ChartMode; label: string; note: string }> = [
+  { key: "daily", label: "日线", note: "历史日 K" },
+  { key: "time", label: "今日分时", note: "1分钟线" },
+  { key: "15", label: "15分钟", note: "分钟K" },
+  { key: "30", label: "30分钟", note: "分钟K" },
+  { key: "60", label: "60分钟", note: "分钟K" },
 ];
 
 const fallbackInstrument: SelectedInstrument = {
@@ -51,7 +62,10 @@ export default function MarketWorkspacePage() {
   const [selected, setSelected] = useState<SelectedInstrument>(fallbackInstrument);
   const [adjustMode, setAdjustMode] = useState<"none" | "qfq" | "hfq">("qfq");
   const [rangePreset, setRangePreset] = useState<RangePreset>("1y");
+  const [chartMode, setChartMode] = useState<ChartMode>("daily");
   const [bars, setBars] = useState<DailyBar[]>([]);
+  const [intradayBars, setIntradayBars] = useState<IntradayBar[]>([]);
+  const [sourceNote, setSourceNote] = useState("");
   const [quote, setQuote] = useState<Quote | null>(null);
   const [signals, setSignals] = useState<StrategySignal[]>([]);
   const [keyword, setKeyword] = useState("");
@@ -83,28 +97,48 @@ export default function MarketWorkspacePage() {
       .finally(() => setLoading(false));
   }, [router]);
 
-  const loadMarketData = useCallback(async (instrument: SelectedInstrument, adjust: typeof adjustMode, range: RangePreset) => {
+  const loadMarketData = useCallback(async (instrument: SelectedInstrument, adjust: typeof adjustMode, range: RangePreset, mode: ChartMode) => {
     setChartLoading(true);
     setError("");
     setMessage("");
+    setSourceNote("");
     try {
-      const dateRange = dateRangeForPreset(range);
-      const [barData, quoteData, signalData] = await Promise.all([
-        getMarketBars({
-          symbol: instrument.symbol,
-          market: instrument.market,
-          adjust,
-          start_date: dateRange.startDate,
-          end_date: dateRange.endDate,
-        }),
+      const marketDataRequest =
+        mode === "daily"
+          ? getMarketBars({
+              symbol: instrument.symbol,
+              market: instrument.market,
+              adjust,
+              start_date: dateRangeForPreset(range).startDate,
+              end_date: dateRangeForPreset(range).endDate,
+            })
+          : getIntradayBars({
+              symbol: instrument.symbol,
+              market: instrument.market,
+              instrument_type: instrument.asset_type === "stock" || instrument.asset_type === "etf" || instrument.asset_type === "index" ? instrument.asset_type : "auto",
+              period: mode === "time" ? "1" : mode,
+              adjust: mode === "time" ? "none" : adjust,
+              start_datetime: intradayDateRangeForMode(mode).start,
+              end_datetime: intradayDateRangeForMode(mode).end,
+            });
+      const [marketData, quoteData, signalData] = await Promise.all([
+        marketDataRequest,
         getMarketQuotes([instrument.symbol]),
         getSignals({ symbol: instrument.symbol, limit: 8 }),
       ]);
-      setBars(barData.bars);
+      if (mode === "daily") {
+        setBars(marketData.bars as DailyBar[]);
+        setIntradayBars([]);
+      } else {
+        setBars([]);
+        setIntradayBars(marketData.bars as IntradayBar[]);
+        setSourceNote("source_note" in marketData && marketData.source_note ? marketData.source_note : "");
+      }
       setQuote(quoteData[0] ?? null);
       setSignals(signalData);
     } catch (err) {
       setBars([]);
+      setIntradayBars([]);
       setQuote(null);
       setSignals([]);
       setError(err instanceof Error ? err.message : "行情数据加载失败");
@@ -119,8 +153,8 @@ export default function MarketWorkspacePage() {
     }
     // The chart is synchronized with the selected instrument and adjustment mode.
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    loadMarketData(selected, adjustMode, rangePreset);
-  }, [selected, adjustMode, rangePreset, loadMarketData]);
+    loadMarketData(selected, adjustMode, rangePreset, chartMode);
+  }, [selected, adjustMode, rangePreset, chartMode, loadMarketData]);
 
   async function handleSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -163,18 +197,18 @@ export default function MarketWorkspacePage() {
           </div>
           <div className="flex flex-col gap-2 lg:items-end">
             <div className="flex flex-wrap gap-2 text-sm">
-              {(["1d", "60min", "30min", "15min"] as const).map((period) => (
+              {chartModes.map((mode) => (
                 <button
-                  className={period === "1d" ? "rounded-md bg-accent px-3 py-2 font-medium text-white" : "rounded-md border border-slate-300 px-3 py-2 text-slate-500 opacity-60"}
-                  disabled={period !== "1d"}
-                  key={period}
+                  className={chartMode === mode.key ? "rounded-md bg-accent px-3 py-2 font-medium text-white" : "rounded-md border border-slate-300 px-3 py-2 text-slate-400 hover:border-cyan-300/40 hover:text-slate-100"}
+                  key={mode.key}
+                  onClick={() => setChartMode(mode.key)}
                   type="button"
                 >
-                  {period === "1d" ? "日线" : `${period} 即将支持`}
+                  {mode.label}
                 </button>
               ))}
             </div>
-            <p className="text-xs text-slate-500">当前仅展示日线；盘中分时和分钟K线将在后续接入。</p>
+            <p className="text-xs text-slate-500">今日分时基于 1 分钟线；当前不包含逐笔成交、盘口深度或 WebSocket 实时推流。</p>
           </div>
         </header>
 
@@ -235,21 +269,30 @@ export default function MarketWorkspacePage() {
             <div className="flex flex-col gap-3 border-b border-slate-200 pb-4 lg:flex-row lg:items-start lg:justify-between">
               <div>
                 <p className="text-sm text-slate-500">{selected.market} / {selected.asset_type ?? "instrument"}</p>
-                <h2 className="mt-1 text-2xl font-semibold">{quote?.name ?? selected.name} <span className="text-slate-500">{selected.symbol}</span></h2>
+                <h2 className="mt-1 text-2xl font-semibold">
+                  {quote?.name ?? selected.name} <span className="text-slate-500">{selected.symbol}</span>
+                </h2>
+                <p className="mt-1 text-xs text-slate-500">{chartModeLabel(chartMode)} / {chartMode === "daily" ? rangeLabel(rangePreset) : intradayWindowLabel(chartMode)}</p>
               </div>
               <div className="flex flex-col gap-2 lg:items-end">
-                <div className="flex max-w-full gap-1 overflow-x-auto rounded-md border border-slate-200 bg-[#0b1322]/70 p-1 text-sm">
-                  {rangePresets.map((preset) => (
-                    <button
-                      className={rangePreset === preset.key ? "whitespace-nowrap rounded-md bg-cyan-300/10 px-3 py-2 text-accent" : "whitespace-nowrap rounded-md px-3 py-2 text-slate-600"}
-                      key={preset.key}
-                      onClick={() => setRangePreset(preset.key)}
-                      type="button"
-                    >
-                      {preset.label}
-                    </button>
-                  ))}
-                </div>
+                {chartMode === "daily" ? (
+                  <div className="flex max-w-full gap-1 overflow-x-auto rounded-md border border-slate-200 bg-[#0b1322]/70 p-1 text-sm">
+                    {rangePresets.map((preset) => (
+                      <button
+                        className={rangePreset === preset.key ? "whitespace-nowrap rounded-md bg-cyan-300/10 px-3 py-2 text-accent" : "whitespace-nowrap rounded-md px-3 py-2 text-slate-600"}
+                        key={preset.key}
+                        onClick={() => setRangePreset(preset.key)}
+                        type="button"
+                      >
+                        {preset.label}
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="rounded-md border border-cyan-300/15 bg-cyan-300/5 px-3 py-2 text-xs text-slate-500">
+                    {chartMode === "time" ? "展示当前交易日 1 分钟走势" : `${chartMode} 分钟 K 线展示近期窗口，数据范围受 AKShare 源限制。`}
+                  </p>
+                )}
                 <div className="flex rounded-md border border-slate-200 bg-[#0b1322]/70 p-1 text-sm">
                   {(["none", "qfq", "hfq"] as const).map((mode) => (
                     <button className={adjustMode === mode ? "rounded-md bg-cyan-300/10 px-3 py-2 text-accent" : "rounded-md px-3 py-2 text-slate-600"} key={mode} onClick={() => setAdjustMode(mode)} type="button">
@@ -260,9 +303,17 @@ export default function MarketWorkspacePage() {
               </div>
             </div>
             <div className="relative mt-4 h-[560px] overflow-hidden rounded-md border border-slate-200 bg-[#080d18]">
-              {chartLoading ? <div className="absolute inset-0 z-10 flex items-center justify-center bg-[#080d18]/72 text-sm text-slate-600">加载历史行情...</div> : null}
-              {bars.length > 0 ? <MarketChart bars={bars} /> : <div className="flex h-full items-center justify-center text-sm text-slate-600">暂无可展示的历史 K 线数据</div>}
+              {chartLoading ? <div className="absolute inset-0 z-10 flex items-center justify-center bg-[#080d18]/72 text-sm text-slate-600">加载行情数据...</div> : null}
+              {!chartLoading && chartMode === "daily" && bars.length > 0 ? <MarketChart bars={bars} /> : null}
+              {!chartLoading && chartMode === "time" && intradayBars.length > 0 ? <IntradayLineChart bars={intradayBars} /> : null}
+              {!chartLoading && chartMode !== "daily" && chartMode !== "time" && intradayBars.length > 0 ? <IntradayCandleChart bars={intradayBars} /> : null}
+              {!chartLoading && ((chartMode === "daily" && bars.length === 0) || (chartMode !== "daily" && intradayBars.length === 0)) ? (
+                <div className="flex h-full items-center justify-center px-6 text-center text-sm leading-6 text-slate-600">
+                  {chartMode === "daily" ? "暂无可展示的历史 K 线数据" : "该标的分钟级行情当前暂不可用，未使用日线数据伪装展示。请切回日线或稍后再试。"}
+                </div>
+              ) : null}
             </div>
+            {sourceNote && chartMode !== "daily" ? <p className="mt-2 text-xs text-slate-500">{sourceNote}</p> : null}
           </section>
 
           <aside className="rounded-lg border border-slate-200 bg-panel p-4">
@@ -386,6 +437,116 @@ function MarketChart({ bars }: { bars: DailyBar[] }) {
   return <div className="h-full w-full" ref={containerRef} />;
 }
 
+function IntradayLineChart({ bars }: { bars: IntradayBar[] }) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) {
+      return;
+    }
+    const chart = createChart(container, chartOptions(container));
+    const areaSeries = chart.addAreaSeries({
+      lineColor: "#20d6c7",
+      topColor: "rgba(32, 214, 199, 0.28)",
+      bottomColor: "rgba(32, 214, 199, 0.02)",
+      lineWidth: 2,
+      priceLineVisible: false,
+    });
+    areaSeries.setData(bars.map((bar) => ({ time: intradayTime(bar.ts), value: bar.close })));
+
+    const volumeSeries = chart.addHistogramSeries({ priceFormat: { type: "volume" }, priceScaleId: "" });
+    volumeSeries.priceScale().applyOptions({ scaleMargins: { top: 0.82, bottom: 0 } });
+    volumeSeries.setData(
+      bars.map((bar) => ({
+        time: intradayTime(bar.ts),
+        value: bar.volume,
+        color: bar.close >= bar.open ? "rgba(251,113,133,0.30)" : "rgba(52,211,153,0.30)",
+      })),
+    );
+    chart.timeScale().fitContent();
+
+    const resizeObserver = new ResizeObserver(() => chart.applyOptions({ width: container.clientWidth, height: container.clientHeight }));
+    resizeObserver.observe(container);
+    return () => {
+      resizeObserver.disconnect();
+      chart.remove();
+    };
+  }, [bars]);
+
+  return <div className="h-full w-full" ref={containerRef} />;
+}
+
+function IntradayCandleChart({ bars }: { bars: IntradayBar[] }) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) {
+      return;
+    }
+    const chart = createChart(container, chartOptions(container));
+    const candleSeries = chart.addCandlestickSeries({
+      upColor: "#fb7185",
+      downColor: "#34d399",
+      borderUpColor: "#fb7185",
+      borderDownColor: "#34d399",
+      wickUpColor: "#fb7185",
+      wickDownColor: "#34d399",
+    });
+    candleSeries.setData(bars.map((bar) => ({ time: intradayTime(bar.ts), open: bar.open, high: bar.high, low: bar.low, close: bar.close })));
+
+    const volumeSeries = chart.addHistogramSeries({ priceFormat: { type: "volume" }, priceScaleId: "" });
+    volumeSeries.priceScale().applyOptions({ scaleMargins: { top: 0.82, bottom: 0 } });
+    volumeSeries.setData(
+      bars.map((bar) => ({
+        time: intradayTime(bar.ts),
+        value: bar.volume,
+        color: bar.close >= bar.open ? "rgba(251,113,133,0.35)" : "rgba(52,211,153,0.35)",
+      })),
+    );
+    addIntradayMaLine(chart, bars, 5, "#fbbf24");
+    addIntradayMaLine(chart, bars, 10, "#60a5fa");
+    addIntradayMaLine(chart, bars, 20, "#20d6c7");
+    chart.timeScale().fitContent();
+
+    const resizeObserver = new ResizeObserver(() => chart.applyOptions({ width: container.clientWidth, height: container.clientHeight }));
+    resizeObserver.observe(container);
+    return () => {
+      resizeObserver.disconnect();
+      chart.remove();
+    };
+  }, [bars]);
+
+  return <div className="h-full w-full" ref={containerRef} />;
+}
+
+function chartOptions(container: HTMLDivElement) {
+  return {
+    width: container.clientWidth,
+    height: container.clientHeight,
+    layout: {
+      background: { type: ColorType.Solid, color: "#080d18" },
+      textColor: "#91a0b8",
+    },
+    grid: {
+      vertLines: { color: "rgba(148, 163, 184, 0.08)" },
+      horzLines: { color: "rgba(148, 163, 184, 0.08)" },
+    },
+    rightPriceScale: {
+      borderColor: "rgba(148, 163, 184, 0.18)",
+    },
+    timeScale: {
+      borderColor: "rgba(148, 163, 184, 0.18)",
+      timeVisible: true,
+    },
+    crosshair: {
+      vertLine: { color: "rgba(32, 214, 199, 0.45)" },
+      horzLine: { color: "rgba(32, 214, 199, 0.45)" },
+    },
+  };
+}
+
 function addMaLine(chart: IChartApi, bars: DailyBar[], period: number, color: string) {
   const series = chart.addLineSeries({ color, lineWidth: 2, priceLineVisible: false, lastValueVisible: false });
   const data = bars
@@ -396,6 +557,21 @@ function addMaLine(chart: IChartApi, bars: DailyBar[], period: number, color: st
       const slice = bars.slice(index + 1 - period, index + 1);
       const value = slice.reduce((sum, item) => sum + item.close, 0) / period;
       return { time: bar.trade_date as Time, value };
+    })
+    .filter((item): item is { time: Time; value: number } => item !== null);
+  series.setData(data);
+}
+
+function addIntradayMaLine(chart: IChartApi, bars: IntradayBar[], period: number, color: string) {
+  const series = chart.addLineSeries({ color, lineWidth: 2, priceLineVisible: false, lastValueVisible: false });
+  const data = bars
+    .map((bar, index) => {
+      if (index + 1 < period) {
+        return null;
+      }
+      const slice = bars.slice(index + 1 - period, index + 1);
+      const value = slice.reduce((sum, item) => sum + item.close, 0) / period;
+      return { time: intradayTime(bar.ts), value };
     })
     .filter((item): item is { time: Time; value: number } => item !== null);
   series.setData(data);
@@ -459,6 +635,26 @@ function dateRangeForPreset(preset: RangePreset) {
   };
 }
 
+function intradayDateRangeForMode(mode: ChartMode) {
+  const now = new Date();
+  if (mode === "time") {
+    const today = todayString();
+    return {
+      start: `${today}T09:30:00`,
+      end: `${today}T15:00:00`,
+    };
+  }
+  const start = new Date(now);
+  start.setDate(start.getDate() - 14);
+  start.setHours(9, 30, 0, 0);
+  const end = new Date(now);
+  end.setHours(15, 0, 0, 0);
+  return {
+    start: formatLocalDateTime(start),
+    end: formatLocalDateTime(end),
+  };
+}
+
 function startDateForPreset(preset: RangePreset) {
   if (preset === "all") {
     return "2005-01-01";
@@ -491,6 +687,33 @@ function dateMonthsAgo(months: number) {
   const date = new Date();
   date.setMonth(date.getMonth() - months);
   return date.toISOString().slice(0, 10);
+}
+
+function formatLocalDateTime(value: Date) {
+  const pad = (item: number) => String(item).padStart(2, "0");
+  return `${value.getFullYear()}-${pad(value.getMonth() + 1)}-${pad(value.getDate())}T${pad(value.getHours())}:${pad(value.getMinutes())}:${pad(value.getSeconds())}`;
+}
+
+function intradayTime(value: string): Time {
+  return Math.floor(new Date(value).getTime() / 1000) as Time;
+}
+
+function chartModeLabel(mode: ChartMode) {
+  if (mode === "daily") {
+    return "日线";
+  }
+  if (mode === "time") {
+    return "今日分时";
+  }
+  return `${mode}分钟K`;
+}
+
+function intradayWindowLabel(mode: ChartMode) {
+  return mode === "time" ? "当日 09:30-15:00" : "近约 10 个交易日窗口";
+}
+
+function rangeLabel(preset: RangePreset) {
+  return rangePresets.find((item) => item.key === preset)?.label ?? "近1年";
 }
 
 function formatSignedPct(value: number) {
