@@ -253,7 +253,7 @@ export async function apiRequest<T>(path: string, options: RequestInit = {}): Pr
     let message = `Request failed with ${response.status}`;
     try {
       const data = await response.json();
-      message = data.detail ?? message;
+      message = formatApiErrorDetail(data.detail ?? data.message ?? data.error ?? message);
     } catch {
       // Keep the status-based message.
     }
@@ -261,6 +261,29 @@ export async function apiRequest<T>(path: string, options: RequestInit = {}): Pr
   }
 
   return response.json() as Promise<T>;
+}
+
+function formatApiErrorDetail(detail: unknown): string {
+  if (typeof detail === "string") {
+    return detail;
+  }
+  if (Array.isArray(detail)) {
+    return detail
+      .map((item) => {
+        if (item && typeof item === "object") {
+          const record = item as Record<string, unknown>;
+          const loc = Array.isArray(record.loc) ? record.loc.join(".") : "";
+          const msg = typeof record.msg === "string" ? record.msg : JSON.stringify(record);
+          return loc ? `${loc}: ${msg}` : msg;
+        }
+        return String(item);
+      })
+      .join("; ");
+  }
+  if (detail && typeof detail === "object") {
+    return JSON.stringify(detail);
+  }
+  return String(detail ?? "Request failed");
 }
 
 export function getCurrentUser() {

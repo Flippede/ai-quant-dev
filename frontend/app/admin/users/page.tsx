@@ -99,12 +99,15 @@ export default function AdminUsersPage() {
           <input
             className="rounded-md border border-slate-300 px-3 py-2 text-sm"
             placeholder="username"
+            required
             value={username}
             onChange={(event) => setUsername(event.target.value)}
           />
           <input
             className="rounded-md border border-slate-300 px-3 py-2 text-sm"
+            minLength={8}
             placeholder="initial password"
+            required
             type="password"
             value={password}
             onChange={(event) => setPassword(event.target.value)}
@@ -170,4 +173,3 @@ export default function AdminUsersPage() {
     </main>
   );
 }
-
