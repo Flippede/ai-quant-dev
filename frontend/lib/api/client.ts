@@ -549,7 +549,18 @@ export function getRecentSignals(limit = 10) {
   return apiRequest<StrategySignal[]>(`/api/signals/recent?limit=${limit}`);
 }
 
-export function getSignals(params: { severity?: string; signal_type?: string; symbol?: string; limit?: number } = {}) {
+export function getSignals(
+  params: {
+    severity?: string;
+    signal_type?: string;
+    strategy_config_id?: string;
+    symbol?: string;
+    start?: string;
+    end?: string;
+    limit?: number;
+    offset?: number;
+  } = {},
+) {
   const query = new URLSearchParams();
   Object.entries(params).forEach(([key, value]) => {
     if (value !== undefined && value !== "") {

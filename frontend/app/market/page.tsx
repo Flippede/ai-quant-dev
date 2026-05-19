@@ -69,7 +69,7 @@ const barsSessionCache = new Map<string, { bars: DailyBar[] | IntradayBar[]; met
 export default function MarketWorkspacePage() {
   const router = useRouter();
   const [groups, setGroups] = useState<WatchlistGroup[]>([]);
-  const [selected, setSelected] = useState<SelectedInstrument>(fallbackInstrument);
+  const [selected, setSelected] = useState<SelectedInstrument>(() => initialSelectedInstrument());
   const [adjustMode, setAdjustMode] = useState<"none" | "qfq" | "hfq">("qfq");
   const [rangePreset, setRangePreset] = useState<RangePreset>("1y");
   const [chartMode, setChartMode] = useState<ChartMode>("daily");
@@ -94,6 +94,9 @@ export default function MarketWorkspacePage() {
       .then(async () => {
         const data = await getWatchlistGroups();
         setGroups(data);
+        if (initialMarketSymbol()) {
+          return;
+        }
         const first = data.flatMap((group) => group.items)[0];
         if (first) {
           setSelected({
@@ -827,6 +830,26 @@ function intradayWindowLabel(mode: ChartMode) {
 
 function rangeLabel(preset: RangePreset) {
   return rangePresets.find((item) => item.key === preset)?.label ?? "近1年";
+}
+
+function initialSelectedInstrument() {
+  const symbol = initialMarketSymbol();
+  if (!symbol) {
+    return fallbackInstrument;
+  }
+  return {
+    symbol,
+    market: "CN",
+    name: symbol,
+    asset_type: "auto",
+  };
+}
+
+function initialMarketSymbol() {
+  if (typeof window === "undefined") {
+    return "";
+  }
+  return new URLSearchParams(window.location.search).get("symbol")?.trim() ?? "";
 }
 
 function formatSignedPct(value: number) {
