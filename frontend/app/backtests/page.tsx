@@ -8,7 +8,7 @@ export default function BacktestsPage() {
   const router = useRouter();
   const [configs, setConfigs] = useState<StrategyConfig[]>([]);
   const [runs, setRuns] = useState<BacktestRun[]>([]);
-  const [strategyConfigId, setStrategyConfigId] = useState("");
+  const [strategyConfigId, setStrategyConfigId] = useState(() => initialQueryValue("config_id"));
   const [symbolsText, setSymbolsText] = useState(() => initialQueryValue("symbols") || "510300,510500,159915,512880");
   const [startDate, setStartDate] = useState("2024-01-01");
   const [endDate, setEndDate] = useState("2025-12-31");
@@ -28,7 +28,10 @@ export default function BacktestsPage() {
     setConfigs(configData);
     setRuns(runData);
     const firstSupported = configData.find((config) => config.template_key === "etf_momentum_rotation");
-    if (!strategyConfigId && firstSupported) {
+    const queryConfigId = initialQueryValue("config_id");
+    if (queryConfigId && configData.some((config) => config.id === queryConfigId && config.template_key === "etf_momentum_rotation")) {
+      setStrategyConfigId(queryConfigId);
+    } else if (!strategyConfigId && firstSupported) {
       setStrategyConfigId(firstSupported.id);
     }
   }

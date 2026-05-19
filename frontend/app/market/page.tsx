@@ -409,7 +409,7 @@ export default function MarketWorkspacePage() {
               <button className="rounded-md border border-slate-300 px-4 py-2 text-left text-sm" onClick={() => router.push(`/backtests?symbols=${selected.symbol}`)}>
                 发起回测
               </button>
-              <button className="rounded-md bg-accent px-4 py-2 text-left text-sm font-medium text-white" onClick={() => router.push("/strategies")}>
+              <button className="rounded-md bg-accent px-4 py-2 text-left text-sm font-medium text-white" onClick={() => router.push(`/strategies?symbol=${selected.symbol}`)}>
                 创建相关策略
               </button>
             </div>
