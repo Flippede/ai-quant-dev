@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { CurrentUser, getCurrentUser, logout } from "@/lib/api/client";
 
 const navItems = [
@@ -19,12 +19,41 @@ export function AppHeader() {
   const router = useRouter();
   const [user, setUser] = useState<CurrentUser | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
+  const accountRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     getCurrentUser().then(setUser).catch(() => undefined);
   }, []);
 
+  useEffect(() => {
+    if (!accountOpen) {
+      return;
+    }
+
+    function handlePointerDown(event: PointerEvent) {
+      if (!accountRef.current?.contains(event.target as Node)) {
+        setAccountOpen(false);
+      }
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setAccountOpen(false);
+      }
+    }
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [accountOpen]);
+
   async function handleLogout() {
+    setAccountOpen(false);
+    setMenuOpen(false);
     await logout();
     router.replace("/login");
   }
@@ -56,18 +85,30 @@ export function AppHeader() {
               用户管理
             </Link>
           ) : null}
-          <div className="group relative">
-            <button className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium">
-              {user?.username ?? "Account"}
+          <div className="relative" ref={accountRef}>
+            <button
+              aria-expanded={accountOpen}
+              aria-haspopup="menu"
+              className={[
+                "flex items-center gap-2 rounded-md border px-4 py-2 text-sm font-medium transition",
+                accountOpen ? "border-cyan-300/25 bg-cyan-300/10 text-accent" : "border-slate-300 text-slate-600 hover:bg-slate-50",
+              ].join(" ")}
+              onClick={() => setAccountOpen((current) => !current)}
+              type="button"
+            >
+              <span>{user?.username ?? "Account"}</span>
+              <span className={accountOpen ? "text-xs transition-transform rotate-180" : "text-xs transition-transform"}>⌄</span>
             </button>
-            <div className="invisible absolute right-0 top-full z-50 mt-2 w-44 rounded-md border border-slate-200 bg-[#0b1322] p-2 opacity-0 shadow-[0_18px_50px_rgba(0,0,0,0.35)] transition group-hover:visible group-hover:opacity-100">
-              <Link className="block rounded-md px-3 py-2 text-sm text-slate-600 hover:bg-slate-50" href="/change-password" prefetch>
-                修改密码
-              </Link>
-              <button className="block w-full rounded-md px-3 py-2 text-left text-sm text-red-600 hover:bg-slate-50" onClick={handleLogout}>
-                退出登录
-              </button>
-            </div>
+            {accountOpen ? (
+              <div className="absolute right-0 top-full z-50 mt-2 w-48 rounded-md border border-slate-200 bg-[#0b1322] p-2 shadow-[0_18px_50px_rgba(0,0,0,0.35)]" role="menu">
+                <Link className="block rounded-md px-3 py-2 text-sm text-slate-600 hover:bg-slate-50" href="/change-password" onClick={() => setAccountOpen(false)} prefetch role="menuitem">
+                  修改密码
+                </Link>
+                <button className="block w-full rounded-md px-3 py-2 text-left text-sm text-red-300 hover:bg-red-300/10" onClick={handleLogout} role="menuitem" type="button">
+                  退出登录
+                </button>
+              </div>
+            ) : null}
           </div>
         </div>
 
